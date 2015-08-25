@@ -1056,10 +1056,10 @@ def QuotedWideDecode(input_):
     
     <item>
       <title>Ephemeral Encryption in AWS</title>
-      <link>http://crewjam.com/ephemeral-encryption-in-aws/</link>
+      <link>http://crewjam.com/aws-ephemeral-crypto/</link>
       <pubDate>Fri, 06 Mar 2015 00:00:00 +0000</pubDate>
       
-      <guid>http://crewjam.com/ephemeral-encryption-in-aws/</guid>
+      <guid>http://crewjam.com/aws-ephemeral-crypto/</guid>
       <description>
 
 &lt;p&gt;How we use volume encryption in our AWS ephemeral disks&lt;/p&gt;

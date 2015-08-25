@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Ephemeral Encryption in AWS &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/aws-ephemeral-crypto/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-03-06T00:00:00Z" />
+    
+    
+
+    <title> Ephemeral Encryption in AWS &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/aws-ephemeral-crypto/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com/images/Padlocks_sign_nseoultower.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Ephemeral Encryption in AWS</h1>
+      <h2>in which we throw away our private keys</h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>How we use volume encryption in our AWS ephemeral disks</p>
+
+<blockquote>
+<p>You should encrypt data at rest.</p>
+</blockquote>
+
+<p>That&rsquo;s like the 8th commandment or something. Why? I can think of a few reasons:</p>
+
+<ol>
+<li>You are worried about a malicious insider.</li>
+<li>You are worried about carelessness.</li>
+<li>Someone (a regulator, probably) made you do it.</li>
+</ol>
+
+<p>There&rsquo;s lots of snake oil out there about data encryption, particularly in the cloud. In this post I&rsquo;ll share our solution for data-at-rest encryption in AWS. (Most of this is general to cloud compute providers, just in case you are one of the 38 people that use something other than AWS.)</p>
+
+<h1 id="throw-away-the-key:c7cf2966c68b514e09a6e184d4bf033a">throw away the key</h1>
+
+<p>Key management is super tricky to do correctly and I&rsquo;m super lazy. So when we needed to do volume encryption in AWS, I looked for a way to avoid having to manage the keys.</p>
+
+<p>Our app is hosted entirely in AWS. We receive data there, store it there and display it to the users there. Every single one of our EC2 instances uses the ephemeral store, including those for data storage. We keep the data available by using a distributed data store that replicates our data across instances (we use <a href="http://www.elasticsearch.org/">Elastic Search</a>). <sup class="footnote-ref" id="fnref:c7cf2966c68b514e09a6e184d4bf033a:ebs"><a rel="footnote" href="#fn:c7cf2966c68b514e09a6e184d4bf033a:ebs">1</a></sup></p>
+
+<p>To protect the data at rest at on these instances, we create an encrypted volume and discard the key. This is from the code that runs when one of our instances first boots:</p>
+
+<pre><code class="language-python">from Crypto.PublicKey import RSA
+from Crypto import Random
+
+# ...
+
+passphrase = Random.new().read(64).encode(&quot;hex&quot;)
+
+# Encrypt the passphrase to the escrow key and store the encrypted
+# passphrase on the server. This is for emergencies, since we don't
+# really have any further need for the key.
+if FULL_DISK_ENCRYPTION_KEY_ESCOW_PUBLIC_KEY:
+  print &quot;encrypted escrowed key at /root/.ephemeral_escrowed_key&quot;
+  key = RSA.importKey(FULL_DISK_ENCRYPTION_KEY_ESCOW_PUBLIC_KEY)
+  data = key.encrypt(passphrase, None)[0].encode(&quot;base64&quot;)
+  file(&quot;/root/.ephemeral_escrowed_key&quot;, &quot;w&quot;).write(data)
+  os.chmod(&quot;/root/.ephemeral_escrowed_key&quot;, 0400)
+
+print &quot;creating encrypted volume on&quot;, raid_device
+subprocess.check_call(&quot;echo {passphrase} | cryptsetup luksFormat &quot;
+  &quot;-c twofish-xts-plain64 -s 512 --key-file=- &quot;
+  &quot;{raid_device}&quot;.format(**locals()), shell=True)
+
+subprocess.check_call(&quot;echo {passphrase} | cryptsetup luksOpen &quot;
+  &quot;--key-file=- {raid_device} ephemeral-encrypted&quot;.format(**locals()),
+  shell=True)
+
+print &quot;creating filesystem on /dev/mapper/ephemeral-encrypted&quot;
+subprocess.check_call([&quot;mkfs&quot;, &quot;-t&quot;, &quot;ext4&quot;, &quot;-T&quot;, &quot;largefile4&quot;,
+  &quot;-F&quot;, &quot;/dev/mapper/ephemeral-encrypted&quot;])
+</code></pre>
+
+<p>When we first started doing this I was nervous about cases where we&rsquo;d need the key again, so I generated an RSA key-pair to escrow the volume key and kept the private part in a safe. These days we are confident enough in our approach that we don&rsquo;t need to escrow the volume key any more.</p>
+
+<p>Even though we&rsquo;ve discarded our copy of the key, the kernel still has a copy. And the kernel copy is <a href="http://events.ccc.de/camp/2007/Fahrplan/attachments/1300-Cryptokey_forensics_A.pdf">discoverable if you have access to memory</a>. The guest kernel keeps these keys in non-paged memory, but I wonder if the hypervisor respects that? If not and the hypervisor pages guest memory then the encryption key could end up on a disk somewhere.<sup class="footnote-ref" id="fnref:c7cf2966c68b514e09a6e184d4bf033a:future-work"><a rel="footnote" href="#fn:c7cf2966c68b514e09a6e184d4bf033a:future-work">2</a></sup></p>
+
+<p>It is probably a good idea to disable commands like <code>reboot</code> and <code>shutdown</code> so you don&rsquo;t accidentally do something you&rsquo;ll regret. We haven&rsquo;t bothered to do that because we live in a world where we are (almost) never sad if we lose a machine. (Perhaps I&rsquo;ll write more about that someday)</p>
+
+<p>Some days we are sad, like when <a href="http://aws.amazon.com/blogs/aws/ec2-maintenance-update/">AWS needs to reboot loads of instances</a> all at once. We have to make sure we stay on top of maintenance events so we don&rsquo;t get too many instances needing to restart, since we have to replace rather than restart.</p>
+
+<p>So why isn&rsquo;t this crazy? Let&rsquo;s go through our (admittedly informal) threat model a bit.</p>
+
+<h1 id="a-malicious-insider:c7cf2966c68b514e09a6e184d4bf033a">A malicious insider</h1>
+
+<p>Consider the risk that a malicious employee of Amazon steals your data.</p>
+
+<p>Insider threat exists in all networks. The important question to consider is not &ldquo;am I vulnerable to an insider?&rdquo; &ndash; that answer always &ldquo;yes.&rdquo; A better question is &ldquo;am I <em>more</em> vulnerable to insider threat in AWS than in my datacenter?&rdquo; The answer to that is a little more interesting&hellip;</p>
+
+<p><img style="float: right; width: 400px; padding-left: 20px;" src="http://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/RFControlPanel2.jpg/299px-RFControlPanel2.jpg" /></p>
+
+<p>If you are using AWS for data processing, the CPUs will need access to unencrypted data (setting aside boring use cases like blind storage, or fancy impractical things like <a href="http://www.wired.com/2014/11/hacker-lexicon-homomorphic-encryption/">homomorphic encryption</a>). So however you organize it, the key or key-equivalent to decrypt your data must be accessible to the CPUs doing the work.</p>
+
+<p>Services like <a href="http://aws.amazon.com/cloudhsm/">CloudHSM</a>, <a href="http://aws.amazon.com/kms/">KMS</a>, or even <a href="http://www.safenet-inc.com/data-encryption/hardware-security-modules-hsms/">on-premise key management</a> don&rsquo;t fundamentally change this issue. If you move encryption keys (or encryption operations themselves) into a separate device, the credentials used to access that device become equivalent to the keys themselves.<sup class="footnote-ref" id="fnref:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm"><a rel="footnote" href="#fn:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm">3</a></sup></p>
+
+<p>Fortunately, AWS are somewhat transparent about <a href="http://d0.awsstatic.com/whitepapers/Security/AWS%20Security%20Whitepaper.pdf">how they mitigate insider threat</a>. And they seem to be doing a fairly good job. Better, perhaps than <a href="http://www.datacenterknowledge.com/archives/2007/12/08/oceans-11-data-center-robbery-in-london/">you are doing in your data center</a>.</p>
+
+<p>A malicious insider at AWS faces another challenge that an on-premise attacker doesn&rsquo;t: she doesn&rsquo;t understand your business. The folks whose badges open the doors to your datacenter probably understand your business pretty well. They sit in company meetings, they participate in projects, etc. When they become disgruntled, they know exactly where the most important assets are to snatch. An insider at AWS, although having access to your data, might not know which data matters. Point Amazon.</p>
+
+<p>Bottom line we can&rsquo;t really mitigate insider threat with volume encryption. But at least Amazon doesn&rsquo;t make the situation any worse, and it might even make it better.</p>
+
+<p><strong>Protecting data from a malicious insider is an explicit non-goal.</strong> Which is lucky because it&rsquo;s impossible.</p>
+
+<h1 id="a-careless-insider-at-aws:c7cf2966c68b514e09a6e184d4bf033a">A careless insider at AWS</h1>
+
+<p><img style="float: right; width: 400px; padding-left: 20px;" src="http://cdn.thewire.com/img/upload/2012/10/17/rendered/88b5821e80b3b19f9813bd0c5d9919d9_623x412.jpg" /></p>
+
+<p>What about the risk of carelessness by AWS? They say disks don&rsquo;t leave their datacenters, but what if that is more aspirational than descriptive? <sup class="footnote-ref" id="fnref:c7cf2966c68b514e09a6e184d4bf033a:caveat"><a rel="footnote" href="#fn:c7cf2966c68b514e09a6e184d4bf033a:caveat">4</a></sup></p>
+
+<p>Data-at-rest encryption helps here. Imagine the case where the underlying disk containing your data walks out into the open. If the disk does not also include the encryption key, then it presents little risk.</p>
+
+<p>Another not-so-crazy case to consider is multi-tenancy. Imagine a disk used to hold your data is re-provisioned to another customer. AWS claims your data will not be accessible. But what if they are wrong? Again, if the disk does not also include the encryption key, then it presents little risk.</p>
+
+<h1 id="compliance:c7cf2966c68b514e09a6e184d4bf033a">Compliance</h1>
+
+<p>This is the easiest. You have to do it, even if it doesn&rsquo;t significantly affect your security posture. Information Security is about mitigating mission risk &ndash; including the risk that your mission gets shut down because of non-compliance. So there are times when you may need to add data-at-rest encryption even when you think if presents little security value.</p>
+
+<h1 id="tl-dr:c7cf2966c68b514e09a6e184d4bf033a">TL;DR</h1>
+
+<p>Key management is hard. When possible, skip it. In a fault tolerant system, it should be possible. It was for us.</p>
+
+<p>Image: <a href="http://commons.wikimedia.org/wiki/User:Optx">buenosaurus</a></p>
+<div class="footnotes">
+
+<hr />
+
+<ol>
+<li id="fn:c7cf2966c68b514e09a6e184d4bf033a:ebs">Part of this is an artifact of the time when EBS latency was unpredictable. Part of this is that we just don&rsquo;t need to use EBS because we are replicated at the database layer.
+ <a class="footnote-return" href="#fnref:c7cf2966c68b514e09a6e184d4bf033a:ebs"><sup>[return]</sup></a></li>
+<li id="fn:c7cf2966c68b514e09a6e184d4bf033a:future-work">I&rsquo;d be interested to hear from you if you know or find out how this works&hellip;
+ <a class="footnote-return" href="#fnref:c7cf2966c68b514e09a6e184d4bf033a:future-work"><sup>[return]</sup></a></li>
+<li id="fn:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm">That isn&rsquo;t to say that these devices don&rsquo;t provide security value. The value is in post-incident investigation, auditing, key rotation, access control and so on. These are all super important, it&rsquo;s just that they don&rsquo;t fundamentally change the threat model.
+ <a class="footnote-return" href="#fnref:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm"><sup>[return]</sup></a></li>
+<li id="fn:c7cf2966c68b514e09a6e184d4bf033a:caveat">I have no reason to suspect that AWS are doing anything wrong, we just want to understand the consequences if they are.
+ <a class="footnote-return" href="#fnref:c7cf2966c68b514e09a6e184d4bf033a:caveat"><sup>[return]</sup></a></li>
+</ol>
+</div>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-03-06T00:00:00Z">
+      Mar 6, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Ephemeral%20Encryption%20in%20AWS&amp;url=http%3a%2f%2fcrewjam.com%2faws-ephemeral-crypto%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2faws-ephemeral-crypto%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2faws-ephemeral-crypto%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+
