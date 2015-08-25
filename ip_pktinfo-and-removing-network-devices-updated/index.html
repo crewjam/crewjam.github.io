@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" IP_PKTINFO and removing network devices (Updated) &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-04-08T00:00:00Z" />
+    
+    
+
+    <title> IP_PKTINFO and removing network devices (Updated) &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    <link rel="apple-touch-icon" href="http://crewjam.com/images/apple-touch-icon.png" />
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com/images/DSC_0591.JPG)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">IP_PKTINFO and removing network devices (Updated)</h1>
+      <h2>If you use the IP_PKTINFO flag on your UDP listener, everything breaks when network devices change</h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>If you use the IP_PKTINFO flag on your UDP listener, everything breaks when network devices change</p>
+
+<p>You only care about this if Google brought you here and you have this problem.</p>
+
+<p><strong>Update:</strong> Nick B. sent me an some interesting insights into this problem. Scroll to the end for more</p>
+
+<p>The following sequence of events breaks:</p>
+
+<ol>
+<li>You listen on a UDP socket</li>
+<li>You specify the <a href="http://stackoverflow.com/a/3929208">IP_PKTINFO</a> socket option</li>
+<li>You enter a blocking <code>recv()</code></li>
+<li>A network device is removed</li>
+<li>You close the listening socket.</li>
+</ol>
+
+<p>If you skip step 2, everything works as expected. Scroll down for a test program to illustrate what I&rsquo;m talking about. On my system, <code>setPktInfoFlag = false</code> produces:</p>
+
+<pre><code class="language-sh">creating ethernet device foo0 9.9.9.9
+listening on 0.0.0.0:999
+ReadMsgUDP()
+deleting interface foo0
+closing udpCon
+waiting for ReadMsgUDP to return
+ReadMsgUDP(): n=-1, oobn=0, flags=0, addr=(*net.UDPAddr)(nil), err=&quot;read udp [::]:999: use of closed network connection&quot;
+done
+</code></pre>
+
+<p>While if we set <code>setPktInfoFlag = true</code>, the ReadMsgUDP() never returns:</p>
+
+<pre><code class="language-sh">creating ethernet device foo0 9.9.9.9
+listening on 0.0.0.0:999
+ReadMsgUDP()
+deleting interface foo0
+closing udpCon
+waiting for ReadMsgUDP to return
+(hangs here forever... why?)
+panic: **boom**
+</code></pre>
+
+<p>What happens on your system?</p>
+
+<p>Anybody have any idea what is going on here? Hit me up on twitter, <a href="http://twitter.com/crewjam">@crewjam</a>.</p>
+
+<pre><code class="language-go">// go run baz.go
+package main
+
+import (
+    &quot;fmt&quot;
+    &quot;net&quot;
+    &quot;os/exec&quot;
+    &quot;syscall&quot;
+    &quot;time&quot;
+)
+
+func main() {
+    setPktInfoFlag := true
+    listenString := &quot;0.0.0.0:999&quot;
+
+    fmt.Printf(&quot;creating ethernet device foo0 9.9.9.9\n&quot;)
+    err := exec.Command(&quot;ip&quot;, &quot;link&quot;, &quot;add&quot;, &quot;foo0&quot;, &quot;type&quot;, &quot;veth&quot;, &quot;peer&quot;, &quot;name&quot;, &quot;foo1&quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+    defer exec.Command(&quot;ip&quot;, &quot;link&quot;, &quot;del&quot;, &quot;foo0&quot;).Run()
+    err = exec.Command(&quot;ip&quot;, &quot;addr&quot;, &quot;add&quot;, &quot;9.9.9.9/32&quot;, &quot;dev&quot;, &quot;foo0&quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+    err = exec.Command(&quot;ip&quot;, &quot;link&quot;, &quot;set&quot;, &quot;foo0&quot;, &quot;up&quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+
+    localAddr, _ := net.ResolveUDPAddr(&quot;udp&quot;, listenString)
+    if err != nil {
+        panic(err)
+    }
+    udpCon, err := net.ListenUDP(&quot;udp&quot;, localAddr)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf(&quot;listening on %s\n&quot;, listenString)
+
+    if setPktInfoFlag {
+        udpConFile, err := udpCon.File()
+        if err != nil {
+            panic(err)
+        }
+        err = syscall.SetsockoptInt(int(udpConFile.Fd()), syscall.IPPROTO_IP, syscall.IP_PKTINFO, 1)
+        if err != nil {
+            panic(err)
+        }
+    }
+
+    readDone := make(chan struct{})
+    go func() {
+        fmt.Printf(&quot;ReadMsgUDP()\n&quot;)
+        b, oob := make([]byte, 40), make([]byte, 40)
+        n, oobn, flags, addr, err := udpCon.ReadMsgUDP(b, oob)
+        fmt.Printf(&quot;ReadMsgUDP(): n=%#v, oobn=%#v, flags=%#v, addr=%#v, err=%#v\n&quot;,
+            n, oobn, flags, addr, err.Error())
+        close(readDone)
+    }()
+
+    time.Sleep(time.Second)
+
+    fmt.Printf(&quot;deleting interface foo0\n&quot;)
+    err = exec.Command(&quot;ip&quot;, &quot;link&quot;, &quot;del&quot;, &quot;foo0&quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+
+    time.Sleep(time.Second)
+
+    fmt.Printf(&quot;closing udpCon\n&quot;)
+    udpCon.Close()
+
+    fmt.Printf(&quot;waiting for ReadMsgUDP to return\n&quot;)
+    if setPktInfoFlag {
+        fmt.Printf(&quot;(hangs here forever... why?)\n&quot;)
+        go func() {
+            time.Sleep(2 * time.Second)
+            panic(&quot;**boom**&quot;)
+        }()
+    }
+
+    _, _ = &lt;-readDone
+    fmt.Printf(&quot;done\n&quot;)
+}
+</code></pre>
+
+<h1 id="update:823eb9314a9a5a2a3ce2bf874e2acccf">Update</h1>
+
+<p>Here is a note I got from Nick B. about this post:</p>
+
+<blockquote>
+<p>As an aside, I stumbled upon a post you made regarding IP_PKTINFO with an
+example Go program. The blocking operation you encountered is due to a
+change in the way the Linux kernel processes that flag. With IP_PKTINFO, the
+kernel wil block in skb_recv_datagram. Without the flag, the kernel will
+enter futex_wait_queue_me which I <em>think</em> gets interrupted (i.e., returns
+EINTR) once the socket is closed. To troubleshoot it further and reproduce
+the behavior, check the WCHAN status of each task in the Go process once you
+encounter a point where your program appears hung.</p>
+
+<p>For example, if your program is the process ip-link-test:</p>
+
+<pre><code>cd /proc/$(pidof ip-link-test)
+find task -name wchan -exec cat {} \; -exec echo “ {}” \;
+</code></pre>
+
+<p>You’ll see which syscall each task is in (if any) and the task making it.</p>
+
+<p>I think some user-space programs - top and htop maybe - can show the wchan
+of a process as well.</p>
+</blockquote>
+
+<p>We&rsquo;ve worked around this problem other ways, so I haven&rsquo;t tried this, but I&rsquo;m sharing in case this is helpful to someone else encountering it. Thanks Nick!</p>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-04-08T00:00:00Z">
+      Apr 8, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=IP_PKTINFO%20and%20removing%20network%20devices%20%28Updated%29&amp;url=http%3a%2f%2fcrewjam.com%2fip_pktinfo-and-removing-network-devices-updated%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2fip_pktinfo-and-removing-network-devices-updated%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2fip_pktinfo-and-removing-network-devices-updated%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+

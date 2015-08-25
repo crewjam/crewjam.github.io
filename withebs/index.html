@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" withebs &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/withebs/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-07-03T00:00:00Z" />
+    
+    
+
+    <title> withebs &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    <link rel="apple-touch-icon" href="http://crewjam.com/images/apple-touch-icon.png" />
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/withebs/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com//images/Vantec-Hot-Swap-hard-drive-tray_634009756592505000.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">withebs</h1>
+      <h2></h2>
+    </header>
+    <section class="post-content">
+      <p>Withebs runs a command with the specified EBS volume attached to the currently running EC2 instance.</p>
+
+<!-- break -->
+
+<p>The source is available <a href="https://github.com/crewjam/withebs">on Github</a>.</p>
+
+<p>Usage:</p>
+
+<pre><code>withebs --volume=$VOLUME_ID docker run -v /ebs/$VOLUME_ID:/data training/webapp
+</code></pre>
+
+<p>The volume is mounted at <code>/ebs/$VOLUME_ID</code>. If the volume does not contain a recognized filesystem, it is formatted with <em>mkfs</em> before mounting.</p>
+
+<p>Options:</p>
+
+<ul>
+<li><code>-volume</code> - which volume to mount.</li>
+<li><code>-attach-timeout</code> - how long to wait for the EBS volume to successfully attach to the instance. (Default: 1m30s)</li>
+<li><code>-fs</code> - Which filesystem to create on the volume if one does not already exist. (Default: <code>ext4</code>)</li>
+<li><code>-mountpoint</code> - Where to mount the volume. (Default: <code>/ebs/</code> <em>volume_id</em>)</li>
+<li><code>-mount</code> - Only mount the volume, don&rsquo;t run a command or unmount</li>
+<li><code>-unmount</code> - Only unmount the volume</li>
+</ul>
+
+<p>It takes about 6s to complete the full attach/run/detach cycle:</p>
+
+<pre><code># time ./withebs -volume=vol-12345678 touch /ebs/vol-12345678/foo
+real 0m6.878s
+user 0m0.065s
+sys  0m0.038s
+</code></pre>
+
+<p>Note that the program does <em>not</em> wait for the detach process to complete by default. In particular, you may not be able to attach the volume again immediately.</p>
+
+<pre><code># ./withebs -verbose -volume=vol-12345678 touch foo ; ./withebs -verbose -volume=vol-12345678 touch foo
+attaching vol-12345678 to /dev/sdc
+mounting /dev/xvdc on /ebs/vol-12345678
+invoking touch []string{&quot;foo&quot;}
+unmounting /dev/xvdc from /ebs/vol-12345678
+detaching vol-12345678 from /dev/sdc
+attaching vol-12345678 to /dev/sdd
+failed to attach vol-12345678 at /dev/sdd: VolumeInUse: vol-7265549c is already attached to an instance
+    status code: 400, request id: []
+</code></pre>
+
+<p>Here is an example systemd unit file for using withebs and Docker together.</p>
+
+<pre><code>[Unit]
+Description=Foo Daemon
+After=docker.service
+
+[Service]
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f foo
+ExecStartPre=/usr/bin/docker pull crewjam/foo
+
+ExecStartPre=/bin/sh -c 'set -ex \
+  [ -e /opt/bin/withebs ] || exit 0; \
+  [ -d /opt/bin ] || mkdir -p /opt/bin; \
+  curl -sSL -o /opt/bin/withebs https://github.com/crewjam/withebs/releases/download/v1.1/withebs; \
+  chmod +x /opt/bin/withebs'
+ExecStartPre=/opt/bin/withebs -volume=vol-12345678 -mountpoint=/mnt/foo -mount
+ExecStopPost=/opt/bin/withebs -volume=vol-12345678 -mountpoint=/mnt/foo -unmount
+
+ExecStart=/usr/bin/docker run \
+  -v /mnt/foo:/data \
+  --name=foo \
+  crewjam/foo
+ExecStop=/usr/bin/docker stop foo
+</code></pre>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-07-03T00:00:00Z">
+      Jul 3, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=withebs&amp;url=http%3a%2f%2fcrewjam.com%2fwithebs%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2fwithebs%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2fwithebs%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+

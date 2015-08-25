@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Using Google Apps to log in to AWS &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/using-google-apps-to-log-in-to-aws/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-03-29T00:00:00Z" />
+    
+    
+
+    <title> Using Google Apps to log in to AWS &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    <link rel="apple-touch-icon" href="http://crewjam.com/images/apple-touch-icon.png" />
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/using-google-apps-to-log-in-to-aws/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com/images/Herakles_Kerberos_Eurystheus_Louvre_E701.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Using Google Apps to log in to AWS</h1>
+      <h2>In which we point that maintaining user accounts sucks, avoiding it is hard, and share a tool to make it a tiny bit easier</h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>In which we point that maintaining user accounts sucks, avoiding it is hard, and share <a href="https://github.com/crewjam/awsconsoleauth">a tool to make it a tiny bit easier</a> (I hope).</p>
+
+<p>As your fledgling AWS infrastructure grows, it is tempting to start creating IAM users in your account.</p>
+
+<p><img style="float: right; width: 400px; padding-left: 20px;" 
+src="/images/15493266328_98f9224f60_z.jpg"></p>
+
+<blockquote>
+<p>&ldquo;Hey Bob, can I get access to your cool app?</p>
+</blockquote>
+
+<p>click click</p>
+
+<blockquote>
+<p>&ldquo;Sure, Alice, your initial password is <code>hunter2</code>, make sure to change it right away.&rdquo;</p>
+</blockquote>
+
+<p>A few moments pass and then:</p>
+
+<blockquote>
+<p>&ldquo;Bob, my password doesn&rsquo;t work.&rdquo;</p>
+</blockquote>
+
+<p>click click google google click click</p>
+
+<blockquote>
+<p>&ldquo;Try it now&rdquo;</p>
+</blockquote>
+
+<p>silence</p>
+
+<blockquote>
+<p>&ldquo;Wait, what&rsquo;s my username again?&rdquo;</p>
+</blockquote>
+
+<p>Sound familiar?</p>
+
+<p>Non-federated user accounts seem easy but they are usually wrong in the long run. First, it is a massive time sink&ndash;people need to be added and removed, they forget their passwords, they lose their 2FA tokens, stuff breaks and they ask you for help, and on and on&hellip;</p>
+
+<p>Second, when your non-federated accounts get out of sync with HR (say because somebody quits or gets fired), then you have a security problem if the account isn&rsquo;t killed straightaway.</p>
+
+<h1 id="federation:8a7ba8ae56303c95773702d9563bac96">Federation</h1>
+
+<p>Instead of creating accounts for each user in AWS we want to federate with existing mechanisms. (&ldquo;federate&rdquo; is auth nerd jargon, really we just mean &ldquo;link&rdquo;.) The AWS API supports <a href="http://blogs.aws.amazon.com/security/post/Tx71TWXXJ3UI14/Enabling-Federation-to-AWS-using-Windows-Active-Directory-ADFS-and-SAML-2-0">lots</a> <a href="http://blogs.aws.amazon.com/security/post/Tx3LP54JOGBE0AY/Building-an-App-using-Amazon-Cognito-and-an-OpenID-Connect-Identity-Provider">of</a> <a href="http://aws.amazon.com/about-aws/whats-new/2014/10/14/easier-role-selection-for-saml-based-single-sign-on/">different</a> federation mechanisms.
+Here&rsquo;s what we want:</p>
+
+<ol>
+<li>Use Google OAuth to identify users</li>
+<li>Use membership in a particular Google Groups to determine the AWS access policy we apply.</li>
+<li>Provide direct, easy access to the AWS console.</li>
+<li>Expose appropriate API credentials to the users so they can use the libraries and CLI.</li>
+</ol>
+
+<p>I sifted through the APIs a bit and came to the conclusion that we needed to host a service to handle the authorization. The example tool didn&rsquo;t really seem to do this (and runs only on Windows, I think) and I wanted to get some OAuth experience, so I wrote a tool to do it, <a href="https://github.com/crewjam/awsconsoleauth">available here</a>.</p>
+
+<h1 id="how-it-works:8a7ba8ae56303c95773702d9563bac96">How It Works</h1>
+
+<ul>
+<li>Your users navigate to this service.</li>
+<li>We redirect them through the Google login process.</li>
+<li>We check their group membership in the Google directory service to determine
+which access policy to apply.</li>
+<li>We generate credentials using the AWS Token service and the GetFederationToken API.</li>
+<li>We build a URL to the AWS console that contains their temporary credentials
+and redirect them there.
+
+<ul>
+<li>Alternatively we pass their temporary credentials to
+them directly for use with the AWS API.</li>
+</ul></li>
+</ul>
+
+<p><img src="/images/DSC_1379.JPG" alt="" /></p>
+
+<p>A request for <code>https://aws.example.com/</code> eventually redirects to the root of the console. A request for <code>https://aws.example.com/?uri=/ec2/v2/home?region=us-east-1%23Instances:sort=desc:launchTime</code> redirects to the EC2 console view.</p>
+
+<p>If you want the credentials directly, you can request <code>https://aws.example.com/?view=sh</code> which displays access keys suitable for pasting into a bash-style shell:</p>
+
+<pre><code class="language-bash"># expires 2015-03-14 01:01:04 +0000 UTC
+export AWS_ACCESS_KEY_ID=&quot;ASIAJXXXXXXXXXXXXXXX&quot;
+export AWS_SECRET_ACCESS_KEY=&quot;uS1aP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&quot;
+export AWS_SESSION_TOKEN=&quot;AQoD...i6gF&quot;
+</code></pre>
+
+<p>You can also try <code>view=csh</code> and <code>view=fish</code>.</p>
+
+<h1 id="deployment:8a7ba8ae56303c95773702d9563bac96">Deployment</h1>
+
+<p>The included <a href="http://aws.amazon.com/cloudformation/">CloudFormation</a> document creates a load balancer that listens for HTTPS connections on TCP/443 and proxies them via HTTP to instances in an autoscaling group of size 1. At boot, the instances run a the <code>awsauthproxy</code> docker image which runs <code>awsauthd</code>.</p>
+
+<p>The configuration generates an AWS user whose credentials are used to call GetFederationToken(). These credentials have the maximum access that any of our federated users can have.</p>
+
+<h1 id="holy-credentials-batman:8a7ba8ae56303c95773702d9563bac96">Holy credentials, batman!</h1>
+
+<p>The various credentials and secrets we need to make this work get a little hairy. We have:</p>
+
+<p><img style="float: left; width: 200px; left:50px" src="/images/Let_me_tell_you_a_secret.jpg" title="cc ed yurdon https://www.flickr.com/photos/72098626@N00/3741906651"></p>
+
+<ol>
+<li>A Google OAuth client id and secret. This is used by the web application to authorize users.</li>
+<li>A Google Service account. This is used by the web application to determine which groups an authorized user is in.</li>
+<li>An AWS key and secret that serve as the root for the <a href="http://docs.aws.amazon.com/STS/latest/APIReference/API_GetFederationToken.html">GetFederationToken</a> API call. These must be long-term credentials, not the kind of temporary, token-based credentials that you get from an instance profile.</li>
+</ol>
+
+<p>So how do we protect these secrets from authorized non-root users of our AWS account? The Google secrets are parameters to the CloudFormation document while the AWS secret is known only at the time the CloudFormation stack is created.</p>
+
+<p>For starters, anyone with SSH access to any of the EC2 instances would also have access to the keys. We protect that by carefully selecting the initial SSH key pair (or omit it entirely once everything is working &ndash; that is what we do).</p>
+
+<p>Anyone with access to the AWS resources that control the instance would also have access to the keys. We use the <a href="http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-metadata.html">CloudFormation metadata attributes</a> to pass the secrets to the instance and restrict access to the CloudFormation document using an IAM policy.</p>
+
+<p>Using metadata (attached to the launch config, but I think you can attach &lsquo;em anywhere you like):</p>
+
+<pre><code>&quot;LaunchConfig&quot;: {
+  &quot;Type&quot;: &quot;AWS::AutoScaling::LaunchConfiguration&quot;,
+  &quot;Metadata&quot;: {
+    &quot;SecretAccessKey&quot;: {&quot;Fn::GetAtt&quot;: [&quot;FederationUserAccessKey&quot;, &quot;SecretAccessKey&quot;]},
+    &quot;GoogleClientSecret&quot;: {&quot;Ref&quot;: &quot;GoogleClientSecret&quot;},
+    &quot;GoogleServicePrivateKey&quot;: {&quot;Ref&quot;: &quot;GoogleServicePrivateKey&quot;}
+  }
+</code></pre>
+
+<p>From within the instance we can snag the secret with <a href="http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-get-metadata.html">cfn-get-metadata</a>:</p>
+
+<pre><code class="language-console">cfn-get-metadata -v -s authproxy -r LaunchConfig -k SecretAccessKey
+</code></pre>
+
+<p><em>n.b.:</em> There seems to be special magic that allows the requests that <em>cfn-get-metadata</em> makes to succeed even when the instance has no credentials at all. Anyone know what that magic is?</p>
+
+<p>This is the policy we attach to the user account we create. It prohibits access to our CloudFormation stack.</p>
+
+<pre><code>{
+  &quot;PolicyName&quot; : &quot;MaxAllowedAccessOfFederatedUsers&quot;,
+  &quot;PolicyDocument&quot; : {
+    &quot;Version&quot;: &quot;2012-10-17&quot;,
+    &quot;Statement&quot;: [
+      {
+        &quot;Effect&quot;: &quot;Allow&quot;,
+        &quot;NotAction&quot;: &quot;iam:*&quot;,
+        &quot;Resource&quot;: &quot;*&quot;
+      },
+      {
+        &quot;Action&quot;: [&quot;cloudformation:*&quot;],
+        &quot;Effect&quot;: &quot;Deny&quot;,
+        &quot;Resource&quot;: {&quot;Fn::Join&quot;: [&quot;&quot;, [&quot;arn:aws:cloudformation:&quot;,
+          {&quot;Ref&quot;: &quot;AWS::Region&quot;}, &quot;:&quot;, {&quot;Ref&quot;: &quot;AWS::AccountId&quot;}, &quot;:stack/&quot;,
+          {&quot;Ref&quot;: &quot;AWS::StackName&quot;}, &quot;/*&quot;]]}
+      }
+    ]
+  }
+}
+</code></pre>
+
+<p>Here is what happened when I logged in as a federated user to check that I couldn&rsquo;t inspect the stack:</p>
+
+<p><img src="/images/cfn_access_denied_1.png" alt="" /></p>
+
+<h1 id="aside-some-things-that-didn-t-work:8a7ba8ae56303c95773702d9563bac96">Aside: some things that didn&rsquo;t work</h1>
+
+<h2 id="fail-1-specifying-a-c-f-stack-exactly:8a7ba8ae56303c95773702d9563bac96">Fail #1: Specifying a C.F. Stack exactly</h2>
+
+<p>My first attempt at writing the policy document I used <code>{&quot;Ref&quot;: &quot;AWS:StackId&quot;}</code> which emits an ARN like <code>arn:aws:cloudformation:us-east-1:123456789012:stack/authproxy/daB6cc49-9510-4747-9378-94da915f7fb3</code>. <strong>This didn&rsquo;t work to prevent access, although I expected it would.</strong> (!!!) Through some trial and error I discovered that I had to specify the resource as <code>arn:aws:cloudformation:us-east-1:123456789012:stack/authproxy/*</code>. Perhaps the UUID refers to the version of the document or something?</p>
+
+<h2 id="fail-2-secrets-in-user-data:8a7ba8ae56303c95773702d9563bac96">Fail #2: Secrets in user data</h2>
+
+<p>Passing the secrets in the user data didn&rsquo;t work because we would have had to restrict access to the the CF stack, the autoscaling launch configuration and the EC2 instance. This was too tricky for me to get working. You might think you could write something this:</p>
+
+<pre><code>{
+    &quot;Condition&quot;: {
+        &quot;StringEquals&quot;: {
+            &quot;ec2:ResourceTag/aws:cloudformation:stack-id&quot;: {&quot;Ref&quot;: &quot;AWS::StackId&quot;}
+        }
+    },
+    &quot;Resource&quot;: [
+        &quot;arn:aws:ec2:us-east-1:123456789012:instance/*&quot;
+    ],
+    &quot;Action&quot;: [
+        &quot;ec2:*&quot;
+    ],
+    &quot;Effect&quot;: &quot;Deny&quot;
+}
+</code></pre>
+
+<p>This is an invalid policy because apparently the colons in <em>aws:cloudformation:stack-id</em> are not allowed. Ugh!</p>
+
+<h2 id="fail-3-secrets-in-s3:8a7ba8ae56303c95773702d9563bac96">Fail #3: Secrets in S3</h2>
+
+<p>I considered putting the secrets in an S3 key and restricting access to the key. The problem is that there is no practical way to get the secret key (i.e. the result of invoking <code>{&quot;Fn::GetAtt&quot;: [&quot;FederationUserAccessKey&quot;, &quot;SecretAccessKey&quot;]}</code>) into an S3 bucket using CloudFormation. We could use an <em>output</em> and some kind of follow-up script. But then we&rsquo;d still have to protect the document in order to protect the output. So, using metadata is cleaner.</p>
+
+<h1 id="limitations:8a7ba8ae56303c95773702d9563bac96">Limitations</h1>
+
+<ul>
+<li><p>The mapping from Google groups to AWS policies is currently hard coded. It would be nice to express the policy mappings as AWS IAM users, or groups or something. (This hack works for us but if you fix it, please shoot me a pull request)</p></li>
+
+<li><p>The size of policy document passed to GetFederationToken() is fairly limited.
+I had to remove stuff from the default ReadOnlyAccess policy to make it fit. (This works for us but if you fix it, please shoot me a pull request)</p></li>
+
+<li><p>All errors are reported to users in exactly the same way, by returning
+<em>400 Bad Request</em>. This has the benefit of preventing any state leakage to
+unauthorized users but is a little unfriendly. After carefully considering the
+implications, we might want errors that are a little friendlier.</p></li>
+
+<li><p>There is a public key to verify a part of response to the Google OAuth flow. We fetch the public key at startup, but Google rotates it with some regularity so we should fetch it periodically. (This is an honest-to-God bug which I intend to fix soon)</p></li>
+</ul>
+
+<h1 id="parting-thoughts-mini-rant:8a7ba8ae56303c95773702d9563bac96">Parting thoughts (mini-rant)</h1>
+
+<p>As hosted services go, IAM and CloudFormation are both extremely powerful. The folks that designed IAM obviously understood the need for a flexible and granular policy framework. What they built was a flexible, granular, and <strong>very complicated</strong> policy framework.</p>
+
+<p>When the complexity exceeds my ability to understand, it becomes increasingly difficult to ensure that the policy reflects my actual intentions.</p>
+
+<p>For sure, this is a tough tradeoff to make, but it is an important one with security consequences on both sides. Too granular and the users can&rsquo;t reason about it; too simple and the users can&rsquo;t get the control they want.</p>
+
+<p>In this tradeoff, I think AWS have leaned a little too far towards complexity, but reasonable people can and do differ.</p>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-03-29T00:00:00Z">
+      Mar 29, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Using%20Google%20Apps%20to%20log%20in%20to%20AWS&amp;url=http%3a%2f%2fcrewjam.com%2fusing-google-apps-to-log-in-to-aws%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2fusing-google-apps-to-log-in-to-aws%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2fusing-google-apps-to-log-in-to-aws%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+

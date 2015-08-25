@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/" />
+    
+    
+    <meta property="og:type" content="website" />
+    
+
+    <title> crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    <link rel="apple-touch-icon" href="http://crewjam.com/images/apple-touch-icon.png" />
+    
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '{http:\/\/crewjam.com\/index.xml 0xc20813a060 map[Pages:[      ]] crewjam.com  [] map[] 0001-01-01 00:00:00 \x2b0000 UTC 0001-01-01 00:00:00 \x2b0000 UTC { 0} {\/ http:\/\/crewjam.com\/  } true \x3cnil\x3e {{0 0} 0} \x3cnil\x3e}', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+<section id="intro" data-speed="6" data-type="background">
+	<div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+	<div class="hero-unit">
+		<h1 class="page-title">crewjam</h1>
+		<h3>in which the crew rocks out before the house opens</h3>
+		<h2>and also some stuff about security</h2>
+	</div>
+	<div class="clearfix"></div>
+</section>
+
+
+
+<section id="articles" data-speed="6" data-type="background">
+<div class="row article-ul">
+
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/tiny-docker--go-pattern/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com//images/IMG_3480-1.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Tiny Docker &#43; Go Pattern</h4>
+        <p><p>Docker is a handy way to deploy applications, and <a href="http://golang.org">Go</a> is handy way to build them. Here is how we build Docker containers for small apps.</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/docker-build-environments/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com//images/BSBConstructionSite_500.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Docker build environments</h4>
+        <p><p>Like a lot of folks, we&rsquo;ve found that Docker is a handy way handy way to avoid having long complex build environment setup instructions. Instead, we define a docker container and assume that the build always runs there.</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/withebs/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com//images/Vantec-Hot-Swap-hard-drive-tray_634009756592505000.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>withebs</h4>
+        <p>Withebs runs a command with the specified EBS volume attached to the currently running EC2 instance. The source is available on Github. Usage: withebs --volume=$VOLUME_ID docker run -v /ebs/$VOLUME_ID:/data training/webapp The volume is mounted at /ebs/$VOLUME_ID. If the volume does not contain a recognized filesystem, it is formatted with mkfs before mounting. Options: -volume - which volume to mount. -attach-timeout - how long to wait for the EBS volume to successfully attach to the instance.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/ip_pktinfo-and-removing-network-devices-updated/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com/images/DSC_0591.JPG" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>IP_PKTINFO and removing network devices (Updated)</h4>
+        <p><p>If you use the IP_PKTINFO flag on your UDP listener, everything breaks when network devices change</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/using-google-apps-to-log-in-to-aws/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com/images/Herakles_Kerberos_Eurystheus_Louvre_E701.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Using Google Apps to log in to AWS</h4>
+        <p><p>In which we point that maintaining user accounts sucks, avoiding it is hard, and share <a href="https://github.com/crewjam/awsconsoleauth">a tool to make it a tiny bit easier</a> (I hope).</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/whats-in-a-windows-name/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com/images/3514279453_8372f71a19_o.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Whats in a (Windows) name?</h4>
+        <p><p>In which we introduce a forensically sound encoding scheme for Windows names.</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xs-2 col-sm-3">
+    <div class="thumbnail">
+      <a href="/ephemeral-encryption-in-aws/">
+	      <img class="media-object img-circle article-img" src="http://crewjam.com/images/Padlocks_sign_nseoultower.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Ephemeral Encryption in AWS</h4>
+        <p><p>How we use volume encryption in our AWS ephemeral disks</p>
+</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</section>
+
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+

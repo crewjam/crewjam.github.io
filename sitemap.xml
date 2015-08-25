@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>http://crewjam.com/</loc>
+    <lastmod>2015-07-22T00:00:00+00:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/tiny-docker--go-pattern/</loc>
+    <lastmod>2015-07-22T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/docker-build-environments/</loc>
+    <lastmod>2015-07-21T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/withebs/</loc>
+    <lastmod>2015-07-03T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/</loc>
+    <lastmod>2015-04-08T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/using-google-apps-to-log-in-to-aws/</loc>
+    <lastmod>2015-03-29T00:00:00+00:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/whats-in-a-windows-name/</loc>
+    <lastmod>2015-03-06T08:45:22-07:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://crewjam.com/ephemeral-encryption-in-aws/</loc>
+    <lastmod>2015-03-06T00:00:00+00:00</lastmod>
+  </url>
+  
+</urlset>

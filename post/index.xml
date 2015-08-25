@@ -1,0 +1,1188 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on crewjam.com</title>
+    <link>http://crewjam.com/post/</link>
+    <description>Recent content in Posts on crewjam.com</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language>
+    <copyright>© 2015 Ross Kinder.</copyright>
+    <lastBuildDate>Wed, 22 Jul 2015 00:00:00 +0000</lastBuildDate>
+    <atom:link href="http://crewjam.com/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Tiny Docker &#43; Go Pattern</title>
+      <link>http://crewjam.com/tiny-docker--go-pattern/</link>
+      <pubDate>Wed, 22 Jul 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/tiny-docker--go-pattern/</guid>
+      <description>
+
+&lt;p&gt;Docker is a handy way to deploy applications, and &lt;a href=&#34;http://golang.org&#34;&gt;Go&lt;/a&gt; is handy way to build them. Here is how we build Docker containers for small apps.&lt;/p&gt;
+
+&lt;p&gt;Here&amp;rsquo;s how we build (nearly) single file docker containers for Go programs.&lt;/p&gt;
+
+&lt;h1 id=&#34;building-static-go-programs:eced1be68bcc48c40d796b8c9941b3aa&#34;&gt;Building static go programs&lt;/h1&gt;
+
+&lt;p&gt;As of Go 1.4, and after much futzing, here&amp;rsquo;s how I figured out to build programs statically:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-make&#34;&gt;frobnicator: frobnicator.go
+    CGO_ENABLED=0 go build -a -installsuffix cgo -ldflags &#39;-s&#39; -o frobnicator frobnicator.go
+    ldd frobnicator | grep &amp;quot;not a dynamic executable&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here&amp;rsquo;s a Dockerfile:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-docker&#34;&gt;FROM scratch
+ADD frobnicator /
+CMD [&amp;quot;/frobnicator&amp;quot;]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;scratch&lt;/code&gt; is special docker magic that means start with a blank slate.&lt;/p&gt;
+
+&lt;p&gt;If your application needs to make outbound SSL connections you might need to add SSL certificates&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-docker&#34;&gt;ADD ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Image: &lt;a href=&#34;http://seankenney.com/portfolio.php/docker-logo/&#34;&gt;Sean Kenney&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Docker build environments</title>
+      <link>http://crewjam.com/docker-build-environments/</link>
+      <pubDate>Tue, 21 Jul 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/docker-build-environments/</guid>
+      <description>
+
+&lt;p&gt;Like a lot of folks, we&amp;rsquo;ve found that Docker is a handy way handy way to avoid having long complex build environment setup instructions. Instead, we define a docker container and assume that the build always runs there.&lt;/p&gt;
+
+&lt;h1 id=&#34;warmup-a-simple-tool:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Warmup: a simple tool&lt;/h1&gt;
+
+&lt;p&gt;For simple tools this can be done in one line. For example, here is a simplified version of the Makefile from a simple tool one-file tools called &lt;a href=&#34;https://github.com/secureworks/ephdisk&#34;&gt;ephdisk&lt;/a&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-make&#34;&gt;.PHONY: _ephdisk
+
+all: ephdisk
+
+ephdisk: ephdisk.go
+    docker run -v $(PWD):/go/src/github.com/secureworks/ephdisk golang \
+        make -C /go/src/github.com/secureworks/ephdisk _ephdisk
+
+_ephdisk:
+    go get ./...
+    go install ./...
+    install /go/bin/ephdisk ephdisk
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Our primary make target &lt;code&gt;ephdisk&lt;/code&gt; is constructed by running a docker image &lt;code&gt;golang&lt;/code&gt; and mapping the current directory into the container at a particular path. Once inside the container we invoke make again to build the &lt;code&gt;_ephdisk&lt;/code&gt; target which does the actual work of building the tool. The output file is copied into the working directory.&lt;/p&gt;
+
+&lt;p&gt;The only dependencies we have on the host system are &lt;em&gt;make&lt;/em&gt; and &lt;em&gt;docker&lt;/em&gt;. The build instructions are &amp;ldquo;run &lt;code&gt;make&lt;/code&gt;&amp;rdquo;. Easy peasy.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://stream1.gifsoup.com/view4/1896021/sasuke-s-easy-button-o.gif&#34;&gt;&lt;/p&gt;
+
+&lt;h1 id=&#34;a-more-complex-example:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;A more complex example&lt;/h1&gt;
+
+&lt;p&gt;The build environment for another internal tool is a bit more complex and quite a bit bigger. This environment requires tons of stuff: a bunch of standard Linux packages (nginx, GNU parallel, JDK), packaging tools (&lt;code&gt;fpm&lt;/code&gt;, &lt;code&gt;rpm&lt;/code&gt;, &lt;code&gt;dpkg&lt;/code&gt;), Google Chrome (for running web tests), bower and NPM packages, the go compiler and lots of go libraries and tools.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Yuck&lt;/em&gt; you say. Why not just have fewer dependencies? In my view, dependencies are a pain in the ass, but for some things they are less of a pain in the ass than  writing the code yourself, or (in the case of packaging tools) having non-automated packaging procedures. It&amp;rsquo;s a trade-off&amp;ndash;and in a bunch of cases we&amp;rsquo;ve chosen to have a dependency.&lt;/p&gt;
+
+&lt;p&gt;Bottom line, &lt;strong&gt;in any project bigger than a toy you&amp;rsquo;ll have dependencies to manage.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;To construct our build environment we start with a base &lt;code&gt;Dockerfile&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-dockerfile&#34;&gt;#
+# This dockerfile is used to build and test the project.  You&#39;ll interact with
+# this container using the main Makefile, which will in turn invoke the 
+# container for various purposes.
+FROM ubuntu:14.04
+
+# Add apt repos
+RUN apt-get install -y curl apt-transport-https
+RUN curl -s https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+RUN echo &amp;quot;deb http://dl.google.com/linux/chrome/deb/ stable main&amp;quot; &amp;gt; /etc/apt/sources.list.d/google.list 
+RUN curl -s https://get.docker.com/gpg | apt-key add -
+RUN echo &amp;quot;deb http://get.docker.com/ubuntu docker main&amp;quot; &amp;gt; /etc/apt/sources.list.d/docker.list 
+
+RUN apt-get update &amp;amp;&amp;amp; apt-get install -y ca-certificates google-chrome-stable  lxc-docker make openjdk-7-jre-headless parallel unzip vim wget xvfb gcc dpkg-dev ruby-dev rpm dpkg-sig reprepro createrepo s3cmd
+RUN gem install fpm
+
+# Set up the go environment and dependencies
+RUN curl -sSL http://golang.org/dl/go1.4.linux-amd64.tar.gz | tar -xz -C /usr/local
+ENV PATH /go/bin:/usr/local/go/bin:$PATH
+ENV GOPATH /go
+RUN \
+  go get github.com/kardianos/osext &amp;amp;&amp;amp; \
+  go get code.google.com/p/go.net/context &amp;amp;&amp;amp; \
+  go get code.google.com/p/go.tools/cmd/goimports &amp;amp;&amp;amp; \
+  go get golang.org/x/crypto/bcrypt &amp;amp;&amp;amp; \
+  go get golang.org/x/net/html &amp;amp;&amp;amp; \
+  go get golang.org/x/oauth2 &amp;amp;&amp;amp; \
+  go get golang.org/x/text/transform &amp;amp;&amp;amp; \
+  go get golang.org/x/tools/cmd/cover &amp;amp;&amp;amp; \
+  go get github.com/crowdmob/goamz/... &amp;amp;&amp;amp; \
+  go get github.com/dchest/uniuri &amp;amp;&amp;amp; \
+  go get github.com/drone/config &amp;amp;&amp;amp; \
+  go get github.com/elazarl/go-bindata-assetfs &amp;amp;&amp;amp; \
+  go get github.com/fsouza/go-dockerclient &amp;amp;&amp;amp; \
+  go get github.com/goamz/goamz/... &amp;amp;&amp;amp; \
+  go get github.com/goji/context &amp;amp;&amp;amp; \
+  go get github.com/golang/lint/golint &amp;amp;&amp;amp; \
+  go get github.com/gorilla/websocket &amp;amp;&amp;amp; \
+  go get github.com/jteeuwen/go-bindata/... &amp;amp;&amp;amp; \
+  go get github.com/miekg/dns &amp;amp;&amp;amp; \
+  go get github.com/rcrowley/go-metrics &amp;amp;&amp;amp; \
+  go get github.com/pelletier/go-toml &amp;amp;&amp;amp; \
+  go get github.com/peterbourgon/mergemap &amp;amp;&amp;amp; \
+  go get github.com/stretchr/testify/mock &amp;amp;&amp;amp; \
+  go get github.com/zenazn/goji/web &amp;amp;&amp;amp; \
+  go get golang.org/x/tools/cmd/cover &amp;amp;&amp;amp; \
+  go get golang.org/x/tools/cmd/vet &amp;amp;&amp;amp; \
+  go get gopkg.in/yaml.v2
+
+# Build the web (node and bower) dependencies in /cache. The two directories,
+# node_modules and bower_modules will be later symlinked from the code checkout
+# directory
+WORKDIR /cache
+RUN \
+  curl -sSL http://nodejs.org/dist/v0.10.33/node-v0.10.33-linux-x64.tar.gz |\
+  tar -xzf - --strip-components=1 -C /usr/local
+ADD package.json /cache/package.json
+ADD bower.json /cache/bower.json
+ADD .bowerrc /cache/.bowerrc
+RUN npm install
+RUN npm install -g karma-cli grunt-cli
+RUN /cache/node_modules/bower/bin/bower --allow-root install
+RUN /cache/node_modules/protractor/bin/webdriver-manager update
+
+WORKDIR /go/src/github.com/COMPANY/PROJECT
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We now have a basic container with all our dependencies in it. Next we need to get it set up to run Docker inside.&lt;/p&gt;
+
+&lt;h2 id=&#34;docker-in-docker:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Docker-in-docker.&lt;/h2&gt;
+
+&lt;p&gt;There is a script called &lt;a href=&#34;https://github.com/docker/docker/blob/master/hack/dind&#34;&gt;dind&lt;/a&gt; in the Docker source tree that demonstrates how to run Docker inside a Docker container. (See also &lt;a href=&#34;http://blog.docker.com/2013/09/docker-can-now-run-within-docker/&#34;&gt;this blog&lt;/a&gt;.) The only change we made to &lt;code&gt;dind&lt;/code&gt; is that we removed the final &lt;code&gt;exec &amp;quot;$@&amp;quot;&lt;/code&gt;. We wrap &lt;code&gt;dind&lt;/code&gt; with our own script called &lt;code&gt;run_inside.sh&lt;/code&gt;. Here is a simplified version:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;#!/bin/bash
+#
+# This program runs inside the environment container. It is invoked by run.sh
+# using something like:
+#
+#   docker run --privileged -it securewoks/PROJECT-base ./build/run_inside.sh $@
+#
+# It sets up the container, launches the docker daemon, and invokes the
+# specified command, or bash if none was specified.
+#
+set -e
+source_root=/go/src/github.com/COMPANY/PROJECT
+
+. $source_root/build/dind
+
+# launch the docker daemon
+(setsid docker --debug --daemon --pidfile /tmp/docker.pid &amp;amp;&amp;gt; /tmp/docker.log) &amp;amp;
+
+# bind-mount the cached directories
+[ -d $source_root/frontend/node_modules ] || \
+  mkdir -p $source_root/frontend/node_modules
+mount --bind /cache/node_modules $source_root/frontend/node_modules
+[ -d $source_root/frontend/bower_components ] || \
+  mkdir -p $source_root/frontend/bower_components
+mount --bind /cache/bower_components $source_root/frontend/bower_components
+
+wait_for_docker() {
+  tries=20
+  while ! docker version &amp;amp;&amp;gt; /dev/null; do
+    (( tries-- ))
+    if [ $tries -le 0 ]; then
+      docker version &amp;gt;&amp;amp;2 || true
+      false
+    fi
+    sleep 1
+  done
+}
+wait_for_docker
+
+# run the wrapped program (or bash)
+if [ $# -eq 0 ] ; then
+  exec bash
+else
+  exec $@
+fi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So at this point we can get a functional build environment by doing:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;$ docker build -t COMPANY/PROJECT-base ./build
+$ docker run COMPANY/PROJECT-base --privileged -it \
+    -v $(pwd):/go/src/github.com/COMPANY/PROJECT \
+    ./build/run-inside.sh bash
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We wrap that invocation up in another script that takes care of when to rebuild the build environment container. We compute a hash of the files that could affect the build environment and use that as the version of the container. This way we only need to rebuild the dev environment when one of those files changes. Here is (a truncated version of) that script, &lt;code&gt;./build/run.sh&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;#!/usr/bin/env bash
+#
+# This script runs commands inside the PROJECT development environment,
+# which we construct as needed.
+#
+# We&#39;ve tried to limit the external dependencies of this program to bash and
+# docker. For example, this program does *not* require a working go compiler,
+# or any dependencies of the project itself. Those dependencies are pulled in
+# inside the container.
+#
+set -e
+source_root=$(cd $(dirname &amp;quot;$BASH_SOURCE&amp;quot;)/../; pwd)
+docker_env=&amp;quot;-e TERM -e UPSTREAM_USER=$USER -e UPSTREAM_HOST=$HOSTNAME -e BUILDFLAGS -e TESTDIRS -e TESTFLAGS -e TIMEOUT&amp;quot;
+docker_ports=${docker_ports-&amp;quot;-p 80:80 -p 8000:8000 -p 443:443&amp;quot;}
+docker_flags=${docker_flags-&amp;quot;-it&amp;quot;}
+
+# Build the container (if needed)
+#
+# The version of the base image is determined by $base_image_version which is a
+# (truncated) hash of all the files that could possibly affect the image. Thus
+# we only need to rebuild the base image when a relevant change affects it.
+# These files influence the construction of the container
+base_container_dependencies=&amp;quot;\
+  $source_root/build/Dockerfile \
+  $source_root/build/.bash_aliases \
+  $source_root/frontend/package.json \
+  $source_root/frontend/bower.json \
+  $source_root/frontend/.bowerrc \
+  &amp;quot;
+# The version is a short tag that changes whenever any of the file above change
+base_image_version=$(cat $base_container_dependencies | sha1sum | cut -c-10)
+
+# build the base image but only if needed
+if ! docker inspect COMPANY/PROJECT-base:$base_image_version &amp;amp;&amp;gt;/dev/null ; then
+  install -p frontend/package.json build/package.json
+  install -p frontend/bower.json build/bower.json
+  install -p frontend/.bowerrc build/.bowerrc
+
+  TERM= docker build -t COMPANY/PROJECT-base:$base_image_version $source_root/build
+fi
+
+docker run --privileged $docker_flags \
+  -v $source_root:/go/src/github.com/COMPANY/PROJECT \
+  $dockercfg_volume \
+  $docker_ports \
+  $docker_env \
+  -e ENV_NAME=PROJECT-live \
+  COMPANY/PROJECT-base:$base_image_version ./build/run_inside.sh $@
+exit $?
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;make:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Make&lt;/h2&gt;
+
+&lt;p&gt;Our top level &lt;code&gt;Makefile&lt;/code&gt; wraps invocations to &lt;code&gt;run.sh&lt;/code&gt; (again the actual Makefile is more complicated&amp;ndash;this is a simplified version for clarity):&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-make&#34;&gt;TARGETS=all build check deploy run shell
+.PHONY: $(TARGETS)
+
+# If the ENV_NAME environment variable is not sent (meaning we are outside
+# of the dev environment), reinvoke make wrapped by run.sh so we are 
+# inside the dev environment.
+ifeq ($(ENV_NAME),)
+$(TARGETS):
+    ./build/run.sh make $@
+shell:
+    ./build/run.sh bash
+else
+
+# If we are inside the build environment then do the actual work
+all: build
+build:
+    go generate ./...
+    go build ./...
+
+check:
+    ./tools/lint.sh
+    go test ./...
+
+run: build
+    ./tools/run_integration_environment.sh
+
+deploy:
+    # ....
+endif
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;putting-it-all-together:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Putting it all together&lt;/h2&gt;
+
+&lt;p&gt;In the end I get an environment where the build instructions are stupid simple. This is from our &lt;code&gt;README.md&lt;/code&gt;:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;h3 id=&#34;getting-started:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Getting started&lt;/h3&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Install docker (or boot2docker for mac &amp;amp; windows)&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;If you are using boot2docker make sure the environment is set up correctly,
+perhaps by invoking &lt;code&gt;boot2docker shellinit&lt;/code&gt; in a way appropriate for your
+shell.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;$(boot2docker shellinit)
+&lt;/code&gt;&lt;/pre&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;&lt;code&gt;make run&lt;/code&gt;&lt;/p&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&#34;bonus-warming-the-docker-image-cache:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Bonus: Warming the Docker image cache&lt;/h2&gt;
+
+&lt;p&gt;Our integration tests (which run inside this environment) pull down a variety of docker images and whatnot. Because the inner docker&amp;rsquo;s image cache is empty every time, we have to wait a few minutes for each download. This is annoying and was a big part of the time spent during build/test cycles. Slow builds suck so we have to fix this.&lt;/p&gt;
+
+&lt;p&gt;Annoyingly you cannot run docker-in-docker while constructing a container, so instead we do a two stage build. First we construct the image as before except this time it is tagged &lt;code&gt;COMPANY/PROJECT-base-pre:$base_image_version&lt;/code&gt; . Second, we run that image as a new container invoking &lt;code&gt;./build/warm_image.sh&lt;/code&gt;. When that finishes, we capture the running container as a new image &lt;code&gt;COMPANY/PROJECT-base:$base_image_version&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;In &lt;code&gt;run.sh&lt;/code&gt; we add:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;# run the warmup script inside the preliminary base image to generate the 
+# actual base image.
+echo &amp;quot;building image COMPANY/PROJECT-base:$base_image_version...&amp;quot;
+base_build_image_name=&amp;quot;PROJECT-base-pre-$base_image_version-$$&amp;quot;
+docker run --privileged $docker_flags \
+  --name=$base_build_image_name \
+  -v $source_root:/go/src/github.com/COMPANY/PROJECT \
+  $dockercfg_volume \
+  $docker_ports \
+  $docker_env \
+  -e ENV_NAME=PROJECT-pre \
+  COMPANY/PROJECT-base-pre:$base_image_version ./build/run_inside.sh \
+  ./build/warm_image.sh
+docker commit $base_build_image_name crewjam/PROJECT-base:$base_image_version
+docker rm -f $base_build_image_name
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here is &lt;code&gt;./build/warm_image.sh&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;#!/bin/sh
+#
+# This script runs inside a the preliminary base container to finish building 
+# the base image. Commands here require docker (and hence privileged mode) which
+# is not possible inside the `docker build` environment.
+#
+# Note: if you have a test that requires an image, you should still pull/build 
+# it in your test setup. The purpose of this script is to prime the image cache,
+# but you shouldn&#39;t rely on it when building tests.
+#
+set -ex
+docker pull ubuntu:14.04
+docker pull mysql:latest
+docker pull training/webapp
+docker build -t COMPANY/HELPER-1 ./docker/HELPER-1
+docker build -t crewjam/HELPER-2 ./docker/HELPER-1
+docker build -t crewjam/HELPER-3 ./docker/HELPER-1
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h1 id=&#34;wrapup:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;Wrapup&lt;/h1&gt;
+
+&lt;p&gt;We use docker to create a consistent development environment in a significant project. Although the initial construction of the environment is slow (it takes about 5 minutes), each developer only incurs that pain when the environment changes. Change are uncommon enough that this pain isn&amp;rsquo;t too bad, but common enough that we don&amp;rsquo;t want to manage it by hand.&lt;/p&gt;
+
+&lt;p&gt;The big bonus for us is that we have a consistent environment across all our developers. And because we use the same environment continuous integration, we don&amp;rsquo;t get surprise test failures (much). We also use the same environment for releases to production (note the &lt;code&gt;deploy&lt;/code&gt; target in the Makefile), so that is consistent too.&lt;/p&gt;
+
+&lt;p&gt;Now all we have to do it not screw it up.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;../images/antisuccessoriesconsistencyfunnysalescartoon.jpg&#34;&gt;&lt;/p&gt;
+
+&lt;p&gt;I hope you found this helpful. &lt;a href=&#34;http://twitter.com/crewjam&#34;&gt;I&amp;rsquo;d be grateful for feedback or suggestions&lt;/a&gt;.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>withebs</title>
+      <link>http://crewjam.com/withebs/</link>
+      <pubDate>Fri, 03 Jul 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/withebs/</guid>
+      <description>&lt;p&gt;Withebs runs a command with the specified EBS volume attached to the currently running EC2 instance.&lt;/p&gt;
+
+&lt;!-- break --&gt;
+
+&lt;p&gt;The source is available &lt;a href=&#34;https://github.com/crewjam/withebs&#34;&gt;on Github&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Usage:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;withebs --volume=$VOLUME_ID docker run -v /ebs/$VOLUME_ID:/data training/webapp
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The volume is mounted at &lt;code&gt;/ebs/$VOLUME_ID&lt;/code&gt;. If the volume does not contain a recognized filesystem, it is formatted with &lt;em&gt;mkfs&lt;/em&gt; before mounting.&lt;/p&gt;
+
+&lt;p&gt;Options:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-volume&lt;/code&gt; - which volume to mount.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-attach-timeout&lt;/code&gt; - how long to wait for the EBS volume to successfully attach to the instance. (Default: 1m30s)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-fs&lt;/code&gt; - Which filesystem to create on the volume if one does not already exist. (Default: &lt;code&gt;ext4&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-mountpoint&lt;/code&gt; - Where to mount the volume. (Default: &lt;code&gt;/ebs/&lt;/code&gt; &lt;em&gt;volume_id&lt;/em&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-mount&lt;/code&gt; - Only mount the volume, don&amp;rsquo;t run a command or unmount&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-unmount&lt;/code&gt; - Only unmount the volume&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;It takes about 6s to complete the full attach/run/detach cycle:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# time ./withebs -volume=vol-12345678 touch /ebs/vol-12345678/foo
+real 0m6.878s
+user 0m0.065s
+sys  0m0.038s
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Note that the program does &lt;em&gt;not&lt;/em&gt; wait for the detach process to complete by default. In particular, you may not be able to attach the volume again immediately.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;# ./withebs -verbose -volume=vol-12345678 touch foo ; ./withebs -verbose -volume=vol-12345678 touch foo
+attaching vol-12345678 to /dev/sdc
+mounting /dev/xvdc on /ebs/vol-12345678
+invoking touch []string{&amp;quot;foo&amp;quot;}
+unmounting /dev/xvdc from /ebs/vol-12345678
+detaching vol-12345678 from /dev/sdc
+attaching vol-12345678 to /dev/sdd
+failed to attach vol-12345678 at /dev/sdd: VolumeInUse: vol-7265549c is already attached to an instance
+    status code: 400, request id: []
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here is an example systemd unit file for using withebs and Docker together.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;[Unit]
+Description=Foo Daemon
+After=docker.service
+
+[Service]
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f foo
+ExecStartPre=/usr/bin/docker pull crewjam/foo
+
+ExecStartPre=/bin/sh -c &#39;set -ex \
+  [ -e /opt/bin/withebs ] || exit 0; \
+  [ -d /opt/bin ] || mkdir -p /opt/bin; \
+  curl -sSL -o /opt/bin/withebs https://github.com/crewjam/withebs/releases/download/v1.1/withebs; \
+  chmod +x /opt/bin/withebs&#39;
+ExecStartPre=/opt/bin/withebs -volume=vol-12345678 -mountpoint=/mnt/foo -mount
+ExecStopPost=/opt/bin/withebs -volume=vol-12345678 -mountpoint=/mnt/foo -unmount
+
+ExecStart=/usr/bin/docker run \
+  -v /mnt/foo:/data \
+  --name=foo \
+  crewjam/foo
+ExecStop=/usr/bin/docker stop foo
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>IP_PKTINFO and removing network devices (Updated)</title>
+      <link>http://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/</link>
+      <pubDate>Wed, 08 Apr 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/</guid>
+      <description>
+
+&lt;p&gt;If you use the IP_PKTINFO flag on your UDP listener, everything breaks when network devices change&lt;/p&gt;
+
+&lt;p&gt;You only care about this if Google brought you here and you have this problem.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Update:&lt;/strong&gt; Nick B. sent me an some interesting insights into this problem. Scroll to the end for more&lt;/p&gt;
+
+&lt;p&gt;The following sequence of events breaks:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;You listen on a UDP socket&lt;/li&gt;
+&lt;li&gt;You specify the &lt;a href=&#34;http://stackoverflow.com/a/3929208&#34;&gt;IP_PKTINFO&lt;/a&gt; socket option&lt;/li&gt;
+&lt;li&gt;You enter a blocking &lt;code&gt;recv()&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;A network device is removed&lt;/li&gt;
+&lt;li&gt;You close the listening socket.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;If you skip step 2, everything works as expected. Scroll down for a test program to illustrate what I&amp;rsquo;m talking about. On my system, &lt;code&gt;setPktInfoFlag = false&lt;/code&gt; produces:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;creating ethernet device foo0 9.9.9.9
+listening on 0.0.0.0:999
+ReadMsgUDP()
+deleting interface foo0
+closing udpCon
+waiting for ReadMsgUDP to return
+ReadMsgUDP(): n=-1, oobn=0, flags=0, addr=(*net.UDPAddr)(nil), err=&amp;quot;read udp [::]:999: use of closed network connection&amp;quot;
+done
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;While if we set &lt;code&gt;setPktInfoFlag = true&lt;/code&gt;, the ReadMsgUDP() never returns:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-sh&#34;&gt;creating ethernet device foo0 9.9.9.9
+listening on 0.0.0.0:999
+ReadMsgUDP()
+deleting interface foo0
+closing udpCon
+waiting for ReadMsgUDP to return
+(hangs here forever... why?)
+panic: **boom**
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;What happens on your system?&lt;/p&gt;
+
+&lt;p&gt;Anybody have any idea what is going on here? Hit me up on twitter, &lt;a href=&#34;http://twitter.com/crewjam&#34;&gt;@crewjam&lt;/a&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;// go run baz.go
+package main
+
+import (
+    &amp;quot;fmt&amp;quot;
+    &amp;quot;net&amp;quot;
+    &amp;quot;os/exec&amp;quot;
+    &amp;quot;syscall&amp;quot;
+    &amp;quot;time&amp;quot;
+)
+
+func main() {
+    setPktInfoFlag := true
+    listenString := &amp;quot;0.0.0.0:999&amp;quot;
+
+    fmt.Printf(&amp;quot;creating ethernet device foo0 9.9.9.9\n&amp;quot;)
+    err := exec.Command(&amp;quot;ip&amp;quot;, &amp;quot;link&amp;quot;, &amp;quot;add&amp;quot;, &amp;quot;foo0&amp;quot;, &amp;quot;type&amp;quot;, &amp;quot;veth&amp;quot;, &amp;quot;peer&amp;quot;, &amp;quot;name&amp;quot;, &amp;quot;foo1&amp;quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+    defer exec.Command(&amp;quot;ip&amp;quot;, &amp;quot;link&amp;quot;, &amp;quot;del&amp;quot;, &amp;quot;foo0&amp;quot;).Run()
+    err = exec.Command(&amp;quot;ip&amp;quot;, &amp;quot;addr&amp;quot;, &amp;quot;add&amp;quot;, &amp;quot;9.9.9.9/32&amp;quot;, &amp;quot;dev&amp;quot;, &amp;quot;foo0&amp;quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+    err = exec.Command(&amp;quot;ip&amp;quot;, &amp;quot;link&amp;quot;, &amp;quot;set&amp;quot;, &amp;quot;foo0&amp;quot;, &amp;quot;up&amp;quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+
+    localAddr, _ := net.ResolveUDPAddr(&amp;quot;udp&amp;quot;, listenString)
+    if err != nil {
+        panic(err)
+    }
+    udpCon, err := net.ListenUDP(&amp;quot;udp&amp;quot;, localAddr)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Printf(&amp;quot;listening on %s\n&amp;quot;, listenString)
+
+    if setPktInfoFlag {
+        udpConFile, err := udpCon.File()
+        if err != nil {
+            panic(err)
+        }
+        err = syscall.SetsockoptInt(int(udpConFile.Fd()), syscall.IPPROTO_IP, syscall.IP_PKTINFO, 1)
+        if err != nil {
+            panic(err)
+        }
+    }
+
+    readDone := make(chan struct{})
+    go func() {
+        fmt.Printf(&amp;quot;ReadMsgUDP()\n&amp;quot;)
+        b, oob := make([]byte, 40), make([]byte, 40)
+        n, oobn, flags, addr, err := udpCon.ReadMsgUDP(b, oob)
+        fmt.Printf(&amp;quot;ReadMsgUDP(): n=%#v, oobn=%#v, flags=%#v, addr=%#v, err=%#v\n&amp;quot;,
+            n, oobn, flags, addr, err.Error())
+        close(readDone)
+    }()
+
+    time.Sleep(time.Second)
+
+    fmt.Printf(&amp;quot;deleting interface foo0\n&amp;quot;)
+    err = exec.Command(&amp;quot;ip&amp;quot;, &amp;quot;link&amp;quot;, &amp;quot;del&amp;quot;, &amp;quot;foo0&amp;quot;).Run()
+    if err != nil {
+        panic(err)
+    }
+
+    time.Sleep(time.Second)
+
+    fmt.Printf(&amp;quot;closing udpCon\n&amp;quot;)
+    udpCon.Close()
+
+    fmt.Printf(&amp;quot;waiting for ReadMsgUDP to return\n&amp;quot;)
+    if setPktInfoFlag {
+        fmt.Printf(&amp;quot;(hangs here forever... why?)\n&amp;quot;)
+        go func() {
+            time.Sleep(2 * time.Second)
+            panic(&amp;quot;**boom**&amp;quot;)
+        }()
+    }
+
+    _, _ = &amp;lt;-readDone
+    fmt.Printf(&amp;quot;done\n&amp;quot;)
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h1 id=&#34;update:823eb9314a9a5a2a3ce2bf874e2acccf&#34;&gt;Update&lt;/h1&gt;
+
+&lt;p&gt;Here is a note I got from Nick B. about this post:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;As an aside, I stumbled upon a post you made regarding IP_PKTINFO with an
+example Go program. The blocking operation you encountered is due to a
+change in the way the Linux kernel processes that flag. With IP_PKTINFO, the
+kernel wil block in skb_recv_datagram. Without the flag, the kernel will
+enter futex_wait_queue_me which I &lt;em&gt;think&lt;/em&gt; gets interrupted (i.e., returns
+EINTR) once the socket is closed. To troubleshoot it further and reproduce
+the behavior, check the WCHAN status of each task in the Go process once you
+encounter a point where your program appears hung.&lt;/p&gt;
+
+&lt;p&gt;For example, if your program is the process ip-link-test:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;cd /proc/$(pidof ip-link-test)
+find task -name wchan -exec cat {} \; -exec echo “ {}” \;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You’ll see which syscall each task is in (if any) and the task making it.&lt;/p&gt;
+
+&lt;p&gt;I think some user-space programs - top and htop maybe - can show the wchan
+of a process as well.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;We&amp;rsquo;ve worked around this problem other ways, so I haven&amp;rsquo;t tried this, but I&amp;rsquo;m sharing in case this is helpful to someone else encountering it. Thanks Nick!&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Using Google Apps to log in to AWS</title>
+      <link>http://crewjam.com/using-google-apps-to-log-in-to-aws/</link>
+      <pubDate>Sun, 29 Mar 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/using-google-apps-to-log-in-to-aws/</guid>
+      <description>
+
+&lt;p&gt;In which we point that maintaining user accounts sucks, avoiding it is hard, and share &lt;a href=&#34;https://github.com/crewjam/awsconsoleauth&#34;&gt;a tool to make it a tiny bit easier&lt;/a&gt; (I hope).&lt;/p&gt;
+
+&lt;p&gt;As your fledgling AWS infrastructure grows, it is tempting to start creating IAM users in your account.&lt;/p&gt;
+
+&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; 
+src=&#34;/images/15493266328_98f9224f60_z.jpg&#34;&gt;&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Hey Bob, can I get access to your cool app?&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;click click&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Sure, Alice, your initial password is &lt;code&gt;hunter2&lt;/code&gt;, make sure to change it right away.&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;A few moments pass and then:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Bob, my password doesn&amp;rsquo;t work.&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;click click google google click click&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Try it now&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;silence&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;&amp;ldquo;Wait, what&amp;rsquo;s my username again?&amp;rdquo;&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Sound familiar?&lt;/p&gt;
+
+&lt;p&gt;Non-federated user accounts seem easy but they are usually wrong in the long run. First, it is a massive time sink&amp;ndash;people need to be added and removed, they forget their passwords, they lose their 2FA tokens, stuff breaks and they ask you for help, and on and on&amp;hellip;&lt;/p&gt;
+
+&lt;p&gt;Second, when your non-federated accounts get out of sync with HR (say because somebody quits or gets fired), then you have a security problem if the account isn&amp;rsquo;t killed straightaway.&lt;/p&gt;
+
+&lt;h1 id=&#34;federation:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Federation&lt;/h1&gt;
+
+&lt;p&gt;Instead of creating accounts for each user in AWS we want to federate with existing mechanisms. (&amp;ldquo;federate&amp;rdquo; is auth nerd jargon, really we just mean &amp;ldquo;link&amp;rdquo;.) The AWS API supports &lt;a href=&#34;http://blogs.aws.amazon.com/security/post/Tx71TWXXJ3UI14/Enabling-Federation-to-AWS-using-Windows-Active-Directory-ADFS-and-SAML-2-0&#34;&gt;lots&lt;/a&gt; &lt;a href=&#34;http://blogs.aws.amazon.com/security/post/Tx3LP54JOGBE0AY/Building-an-App-using-Amazon-Cognito-and-an-OpenID-Connect-Identity-Provider&#34;&gt;of&lt;/a&gt; &lt;a href=&#34;http://aws.amazon.com/about-aws/whats-new/2014/10/14/easier-role-selection-for-saml-based-single-sign-on/&#34;&gt;different&lt;/a&gt; federation mechanisms.
+Here&amp;rsquo;s what we want:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Use Google OAuth to identify users&lt;/li&gt;
+&lt;li&gt;Use membership in a particular Google Groups to determine the AWS access policy we apply.&lt;/li&gt;
+&lt;li&gt;Provide direct, easy access to the AWS console.&lt;/li&gt;
+&lt;li&gt;Expose appropriate API credentials to the users so they can use the libraries and CLI.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;I sifted through the APIs a bit and came to the conclusion that we needed to host a service to handle the authorization. The example tool didn&amp;rsquo;t really seem to do this (and runs only on Windows, I think) and I wanted to get some OAuth experience, so I wrote a tool to do it, &lt;a href=&#34;https://github.com/crewjam/awsconsoleauth&#34;&gt;available here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h1 id=&#34;how-it-works:8a7ba8ae56303c95773702d9563bac96&#34;&gt;How It Works&lt;/h1&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Your users navigate to this service.&lt;/li&gt;
+&lt;li&gt;We redirect them through the Google login process.&lt;/li&gt;
+&lt;li&gt;We check their group membership in the Google directory service to determine
+which access policy to apply.&lt;/li&gt;
+&lt;li&gt;We generate credentials using the AWS Token service and the GetFederationToken API.&lt;/li&gt;
+&lt;li&gt;We build a URL to the AWS console that contains their temporary credentials
+and redirect them there.
+
+&lt;ul&gt;
+&lt;li&gt;Alternatively we pass their temporary credentials to
+them directly for use with the AWS API.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/DSC_1379.JPG&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;A request for &lt;code&gt;https://aws.example.com/&lt;/code&gt; eventually redirects to the root of the console. A request for &lt;code&gt;https://aws.example.com/?uri=/ec2/v2/home?region=us-east-1%23Instances:sort=desc:launchTime&lt;/code&gt; redirects to the EC2 console view.&lt;/p&gt;
+
+&lt;p&gt;If you want the credentials directly, you can request &lt;code&gt;https://aws.example.com/?view=sh&lt;/code&gt; which displays access keys suitable for pasting into a bash-style shell:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# expires 2015-03-14 01:01:04 +0000 UTC
+export AWS_ACCESS_KEY_ID=&amp;quot;ASIAJXXXXXXXXXXXXXXX&amp;quot;
+export AWS_SECRET_ACCESS_KEY=&amp;quot;uS1aP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&amp;quot;
+export AWS_SESSION_TOKEN=&amp;quot;AQoD...i6gF&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You can also try &lt;code&gt;view=csh&lt;/code&gt; and &lt;code&gt;view=fish&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h1 id=&#34;deployment:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Deployment&lt;/h1&gt;
+
+&lt;p&gt;The included &lt;a href=&#34;http://aws.amazon.com/cloudformation/&#34;&gt;CloudFormation&lt;/a&gt; document creates a load balancer that listens for HTTPS connections on TCP/443 and proxies them via HTTP to instances in an autoscaling group of size 1. At boot, the instances run a the &lt;code&gt;awsauthproxy&lt;/code&gt; docker image which runs &lt;code&gt;awsauthd&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The configuration generates an AWS user whose credentials are used to call GetFederationToken(). These credentials have the maximum access that any of our federated users can have.&lt;/p&gt;
+
+&lt;h1 id=&#34;holy-credentials-batman:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Holy credentials, batman!&lt;/h1&gt;
+
+&lt;p&gt;The various credentials and secrets we need to make this work get a little hairy. We have:&lt;/p&gt;
+
+&lt;p&gt;&lt;img style=&#34;float: left; width: 200px; left:50px&#34; src=&#34;http://crewjam.com/images/Let_me_tell_you_a_secret.jpg&#34; title=&#34;cc ed yurdon https://www.flickr.com/photos/72098626@N00/3741906651&#34;&gt;&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;A Google OAuth client id and secret. This is used by the web application to authorize users.&lt;/li&gt;
+&lt;li&gt;A Google Service account. This is used by the web application to determine which groups an authorized user is in.&lt;/li&gt;
+&lt;li&gt;An AWS key and secret that serve as the root for the &lt;a href=&#34;http://docs.aws.amazon.com/STS/latest/APIReference/API_GetFederationToken.html&#34;&gt;GetFederationToken&lt;/a&gt; API call. These must be long-term credentials, not the kind of temporary, token-based credentials that you get from an instance profile.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;So how do we protect these secrets from authorized non-root users of our AWS account? The Google secrets are parameters to the CloudFormation document while the AWS secret is known only at the time the CloudFormation stack is created.&lt;/p&gt;
+
+&lt;p&gt;For starters, anyone with SSH access to any of the EC2 instances would also have access to the keys. We protect that by carefully selecting the initial SSH key pair (or omit it entirely once everything is working &amp;ndash; that is what we do).&lt;/p&gt;
+
+&lt;p&gt;Anyone with access to the AWS resources that control the instance would also have access to the keys. We use the &lt;a href=&#34;http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-metadata.html&#34;&gt;CloudFormation metadata attributes&lt;/a&gt; to pass the secrets to the instance and restrict access to the CloudFormation document using an IAM policy.&lt;/p&gt;
+
+&lt;p&gt;Using metadata (attached to the launch config, but I think you can attach &amp;lsquo;em anywhere you like):&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;quot;LaunchConfig&amp;quot;: {
+  &amp;quot;Type&amp;quot;: &amp;quot;AWS::AutoScaling::LaunchConfiguration&amp;quot;,
+  &amp;quot;Metadata&amp;quot;: {
+    &amp;quot;SecretAccessKey&amp;quot;: {&amp;quot;Fn::GetAtt&amp;quot;: [&amp;quot;FederationUserAccessKey&amp;quot;, &amp;quot;SecretAccessKey&amp;quot;]},
+    &amp;quot;GoogleClientSecret&amp;quot;: {&amp;quot;Ref&amp;quot;: &amp;quot;GoogleClientSecret&amp;quot;},
+    &amp;quot;GoogleServicePrivateKey&amp;quot;: {&amp;quot;Ref&amp;quot;: &amp;quot;GoogleServicePrivateKey&amp;quot;}
+  }
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;From within the instance we can snag the secret with &lt;a href=&#34;http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-get-metadata.html&#34;&gt;cfn-get-metadata&lt;/a&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-console&#34;&gt;cfn-get-metadata -v -s authproxy -r LaunchConfig -k SecretAccessKey
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;em&gt;n.b.:&lt;/em&gt; There seems to be special magic that allows the requests that &lt;em&gt;cfn-get-metadata&lt;/em&gt; makes to succeed even when the instance has no credentials at all. Anyone know what that magic is?&lt;/p&gt;
+
+&lt;p&gt;This is the policy we attach to the user account we create. It prohibits access to our CloudFormation stack.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;{
+  &amp;quot;PolicyName&amp;quot; : &amp;quot;MaxAllowedAccessOfFederatedUsers&amp;quot;,
+  &amp;quot;PolicyDocument&amp;quot; : {
+    &amp;quot;Version&amp;quot;: &amp;quot;2012-10-17&amp;quot;,
+    &amp;quot;Statement&amp;quot;: [
+      {
+        &amp;quot;Effect&amp;quot;: &amp;quot;Allow&amp;quot;,
+        &amp;quot;NotAction&amp;quot;: &amp;quot;iam:*&amp;quot;,
+        &amp;quot;Resource&amp;quot;: &amp;quot;*&amp;quot;
+      },
+      {
+        &amp;quot;Action&amp;quot;: [&amp;quot;cloudformation:*&amp;quot;],
+        &amp;quot;Effect&amp;quot;: &amp;quot;Deny&amp;quot;,
+        &amp;quot;Resource&amp;quot;: {&amp;quot;Fn::Join&amp;quot;: [&amp;quot;&amp;quot;, [&amp;quot;arn:aws:cloudformation:&amp;quot;,
+          {&amp;quot;Ref&amp;quot;: &amp;quot;AWS::Region&amp;quot;}, &amp;quot;:&amp;quot;, {&amp;quot;Ref&amp;quot;: &amp;quot;AWS::AccountId&amp;quot;}, &amp;quot;:stack/&amp;quot;,
+          {&amp;quot;Ref&amp;quot;: &amp;quot;AWS::StackName&amp;quot;}, &amp;quot;/*&amp;quot;]]}
+      }
+    ]
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here is what happened when I logged in as a federated user to check that I couldn&amp;rsquo;t inspect the stack:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/cfn_access_denied_1.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;h1 id=&#34;aside-some-things-that-didn-t-work:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Aside: some things that didn&amp;rsquo;t work&lt;/h1&gt;
+
+&lt;h2 id=&#34;fail-1-specifying-a-c-f-stack-exactly:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Fail #1: Specifying a C.F. Stack exactly&lt;/h2&gt;
+
+&lt;p&gt;My first attempt at writing the policy document I used &lt;code&gt;{&amp;quot;Ref&amp;quot;: &amp;quot;AWS:StackId&amp;quot;}&lt;/code&gt; which emits an ARN like &lt;code&gt;arn:aws:cloudformation:us-east-1:123456789012:stack/authproxy/daB6cc49-9510-4747-9378-94da915f7fb3&lt;/code&gt;. &lt;strong&gt;This didn&amp;rsquo;t work to prevent access, although I expected it would.&lt;/strong&gt; (!!!) Through some trial and error I discovered that I had to specify the resource as &lt;code&gt;arn:aws:cloudformation:us-east-1:123456789012:stack/authproxy/*&lt;/code&gt;. Perhaps the UUID refers to the version of the document or something?&lt;/p&gt;
+
+&lt;h2 id=&#34;fail-2-secrets-in-user-data:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Fail #2: Secrets in user data&lt;/h2&gt;
+
+&lt;p&gt;Passing the secrets in the user data didn&amp;rsquo;t work because we would have had to restrict access to the the CF stack, the autoscaling launch configuration and the EC2 instance. This was too tricky for me to get working. You might think you could write something this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;{
+    &amp;quot;Condition&amp;quot;: {
+        &amp;quot;StringEquals&amp;quot;: {
+            &amp;quot;ec2:ResourceTag/aws:cloudformation:stack-id&amp;quot;: {&amp;quot;Ref&amp;quot;: &amp;quot;AWS::StackId&amp;quot;}
+        }
+    },
+    &amp;quot;Resource&amp;quot;: [
+        &amp;quot;arn:aws:ec2:us-east-1:123456789012:instance/*&amp;quot;
+    ],
+    &amp;quot;Action&amp;quot;: [
+        &amp;quot;ec2:*&amp;quot;
+    ],
+    &amp;quot;Effect&amp;quot;: &amp;quot;Deny&amp;quot;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This is an invalid policy because apparently the colons in &lt;em&gt;aws:cloudformation:stack-id&lt;/em&gt; are not allowed. Ugh!&lt;/p&gt;
+
+&lt;h2 id=&#34;fail-3-secrets-in-s3:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Fail #3: Secrets in S3&lt;/h2&gt;
+
+&lt;p&gt;I considered putting the secrets in an S3 key and restricting access to the key. The problem is that there is no practical way to get the secret key (i.e. the result of invoking &lt;code&gt;{&amp;quot;Fn::GetAtt&amp;quot;: [&amp;quot;FederationUserAccessKey&amp;quot;, &amp;quot;SecretAccessKey&amp;quot;]}&lt;/code&gt;) into an S3 bucket using CloudFormation. We could use an &lt;em&gt;output&lt;/em&gt; and some kind of follow-up script. But then we&amp;rsquo;d still have to protect the document in order to protect the output. So, using metadata is cleaner.&lt;/p&gt;
+
+&lt;h1 id=&#34;limitations:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Limitations&lt;/h1&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;The mapping from Google groups to AWS policies is currently hard coded. It would be nice to express the policy mappings as AWS IAM users, or groups or something. (This hack works for us but if you fix it, please shoot me a pull request)&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;The size of policy document passed to GetFederationToken() is fairly limited.
+I had to remove stuff from the default ReadOnlyAccess policy to make it fit. (This works for us but if you fix it, please shoot me a pull request)&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;All errors are reported to users in exactly the same way, by returning
+&lt;em&gt;400 Bad Request&lt;/em&gt;. This has the benefit of preventing any state leakage to
+unauthorized users but is a little unfriendly. After carefully considering the
+implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;There is a public key to verify a part of response to the Google OAuth flow. We fetch the public key at startup, but Google rotates it with some regularity so we should fetch it periodically. (This is an honest-to-God bug which I intend to fix soon)&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&#34;parting-thoughts-mini-rant:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Parting thoughts (mini-rant)&lt;/h1&gt;
+
+&lt;p&gt;As hosted services go, IAM and CloudFormation are both extremely powerful. The folks that designed IAM obviously understood the need for a flexible and granular policy framework. What they built was a flexible, granular, and &lt;strong&gt;very complicated&lt;/strong&gt; policy framework.&lt;/p&gt;
+
+&lt;p&gt;When the complexity exceeds my ability to understand, it becomes increasingly difficult to ensure that the policy reflects my actual intentions.&lt;/p&gt;
+
+&lt;p&gt;For sure, this is a tough tradeoff to make, but it is an important one with security consequences on both sides. Too granular and the users can&amp;rsquo;t reason about it; too simple and the users can&amp;rsquo;t get the control they want.&lt;/p&gt;
+
+&lt;p&gt;In this tradeoff, I think AWS have leaned a little too far towards complexity, but reasonable people can and do differ.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Whats in a (Windows) name?</title>
+      <link>http://crewjam.com/whats-in-a-windows-name/</link>
+      <pubDate>Fri, 06 Mar 2015 08:45:22 -0700</pubDate>
+      
+      <guid>http://crewjam.com/whats-in-a-windows-name/</guid>
+      <description>
+
+&lt;p&gt;In which we introduce a forensically sound encoding scheme for Windows names.&lt;/p&gt;
+
+&lt;h2 id=&#34;so-what-is-a-windows-path:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;So what is a Windows path?&lt;/h2&gt;
+
+&lt;p&gt;Anyone who has done work on Windows has probably heard that file names are &amp;ldquo;unicode.&amp;rdquo; But what does that mean exactly? For starters it means that you can name files things like &lt;code&gt;你好世界.txt&lt;/code&gt; and &lt;code&gt;Здравствулте мир.txt&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/unicode-names-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This works because virtually every name in Windows is represented as a sequence of 16-bit characters which are encoded as UTF-16 (or maybe UCS-2 depending on the version of Windows and who you ask). So a filename is allowed to contain &lt;em&gt;any&lt;/em&gt; 16-bit value? Not quite&amp;hellip;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/unicode-names2-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;What is really going on here? Let&amp;rsquo;s write a little test program to find out.&lt;/p&gt;
+
+&lt;h2 id=&#34;experimenting-with-invalid-paths:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;Experimenting with Invalid Paths&lt;/h2&gt;
+
+&lt;p&gt;The bubble says that &lt;code&gt;&amp;lt;&lt;/code&gt; is not allowed in filenames so lets see what happens when we try to create a file with &lt;code&gt;&amp;lt;&lt;/code&gt; in it.&lt;/p&gt;
+
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #75715e&#34;&gt;// cl test.cc &amp;amp; test.exe&lt;/span&gt;
+&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;windows.h&amp;gt;&lt;/span&gt;
+&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+
+&lt;span style=&#34;color: #66d9ef&#34;&gt;int&lt;/span&gt; &lt;span style=&#34;color: #a6e22e&#34;&gt;main&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;()&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;
+  &lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;a&amp;lt;b&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+  
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;LPVOID&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString;&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;DWORD&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GetLastError();&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_FROM_SYSTEM&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_IGNORE_INSERTS,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;(LPTSTR)&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;printf(&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;error: %d %s&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString);&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This program produces:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;error: 123 The filename, directory name, or volume label syntax is incorrect.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If you try to create a file with an invalid name Windows returns &lt;code&gt;ERROR_INVALID_NAME&lt;/code&gt;.  So far so good. Lets see what happens if we monitor our test program with &lt;a href=&#34;https://technet.microsoft.com/en-us/library/bb896645.aspx&#34;&gt;procmon&lt;/a&gt;? Naturally, it records our attempt to open a file with an invalid path and the resulting error.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Even though it is invalid, procmon is telling us the path we &lt;em&gt;attempted&lt;/em&gt; to open. Lets try creating a file named 你好世界.&lt;/p&gt;
+
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;5&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0x4F60&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x597D&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x4E16&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x754C&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon3.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This time the path is valid, and procmon draws the path correctly in the user interface.  Everything as expected so far.&lt;/p&gt;
+
+&lt;p&gt;What happens if we try to create a file called &lt;code&gt;foo\nbar&lt;/code&gt;? &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;foo&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;bar&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This program produces&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;error: 123 The filename, directory name, or volume label syntax is incorrect.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;What does procmon say?&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon2.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Oops! Procmon didn&amp;rsquo;t render the newline at all.&lt;/p&gt;
+
+&lt;h2 id=&#34;invalid-unicode:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;Invalid Unicode&lt;/h2&gt;
+
+&lt;p&gt;UTF-16 code points &lt;a href=&#34;http://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF&#34;&gt;between 0xd800 and 0xdfff are invalid&lt;/a&gt;. Let&amp;rsquo;s see what happens if we try to create a file with invalid UTF-16.&lt;/p&gt;
+
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;2&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0xd801&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0000&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This program produces&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;error: 0 The operation completed successfully.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;So Windows  doesn&amp;rsquo;t validate the the argument passed to CreateFile() is a valid UTF-16 string. What does procmon do with this?&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon4.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Although procmon makes an attempt to describe the filename, I had a hard time making sense of what was actually happening. I copied and pasted the path into an editor and switched to a hex view and the path seems hopelessly mangled.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon5.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;(I suppose that this could have happened any number of places, in Procmon, in the copy &amp;amp; paste buffer, or in UltraEdit. The point is I have no idea which path the process was trying to open and have no real way to figure it out. Sadness.)&lt;/p&gt;
+
+&lt;h2 id=&#34;describing-file-activity:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;Describing file activity&lt;/h2&gt;
+
+&lt;p&gt;So if you are building a tool like Procmon and you want to be able to talk about Windows paths accurately, how can you do it? The standard formats (XML, JSON, etc.) all more or less require you to use Unicode.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;XML allows you to specify whichever character encoding you want as long as it is unicode.&lt;/li&gt;
+&lt;li&gt;JSON requires UTF-8, -16, or -32 (c.f. &lt;a href=&#34;https://tools.ietf.org/html/rfc7159&#34;&gt;RFC-7159&lt;/a&gt; section 8.1).&lt;/li&gt;
+&lt;li&gt;Strings in protocol buffers must be UTF-8 (c.f. &lt;a href=&#34;https://developers.google.com/protocol-buffers/docs/proto&#34;&gt;this&lt;/a&gt; section &lt;em&gt;Scalar Value Types&lt;/em&gt;).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;We can&amp;rsquo;t encode Windows paths using Unicode because the paths might not have valid encodings. We need a format that lets us reason about strings that are &lt;em&gt;mostly&lt;/em&gt; ASCII but occasionally contain arbitrary characters.&lt;/strong&gt; &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:mitre&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:mitre&#34;&gt;2&lt;/a&gt;&lt;/sup&gt; &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:base64&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:base64&#34;&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;enter-quoted-wide:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;Enter Quoted-wide&lt;/h2&gt;
+
+&lt;p&gt;So we had these problems at work.&lt;/p&gt;
+
+&lt;p&gt;To try and address them, I made up a format which we not-so-creatively called quoted-wide (because it is based on &lt;a href=&#34;http://en.wikipedia.org/wiki/Quoted-printable&#34;&gt;quoted-printable&lt;/a&gt;).The input is a sequence of 16-bit characters. The characters don&amp;rsquo;t need to be valid UTF-16 or valid anything for that matter.&lt;/p&gt;
+
+&lt;p&gt;Here are some example encodings:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;truth=beauty&lt;/em&gt; becomes &lt;code&gt;truth=003Dbeauty&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;Jean Réno&lt;/em&gt; becomes &lt;code&gt;Jean R=00E9no&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;中国 / 章子怡&lt;/em&gt; becomes &lt;code&gt;=4E2D=56FD / =7AE0=5B50=6021&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;ኃይሌ ገብረሥላሴ&lt;/em&gt; becomes &lt;code&gt;=1283=12ED=120C =1308=1265=1228=1225=120B=1234&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;The sequence {0x0041, 0x0000, 0x0042, 0x0000, 0x004C, 0x0000} becomes &lt;code&gt;A=0000B=0000C=0000&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;For values &amp;lt;= 0xff, quoted-wide escapes exactly the same values as quoted-printable.  All values &amp;gt; 0xff are encoded.  Encoded values are represented as an equal sign followed by the four digit value in hex.  [We discard the 76-character line length restriction and the special handling of soft line endings (lines ending in &lt;code&gt;=&lt;/code&gt;) from quoted-printable.]&lt;/p&gt;
+
+&lt;p&gt;Here is an encoder in Python:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;import re
+
+def QuotedWideEncode(input_):
+  rv = []
+  for char in input_:
+    byte = ord(char)
+    if byte &amp;gt;= 0x20 and byte &amp;lt;= 0x7e and char != &#39;=&#39;:
+      rv.append(str(char))
+    else:
+      rv.append(&amp;quot;=%04X&amp;quot; % (byte,))
+  return &amp;quot;&amp;quot;.join(rv)
+	
+def QuotedWideDecode(input_):
+  rv = []
+  for i, part in enumerate(re.split(&amp;quot;(=[0-9A-F]{4})&amp;quot;, input_)):
+    if i % 2 == 0:
+      rv.append(unicode(part))
+    else:
+      rv.append(unichr(int(part[1:], 16)))
+  return u&amp;quot;&amp;quot;.join(rv) 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;so-what:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;So what?&lt;/h2&gt;
+
+&lt;p&gt;So we can see that the encoding works well for strings that are mostly printable Latin characters, but which are not guaranteed to be encodable with Unicode.&lt;/p&gt;
+
+&lt;p&gt;At work we encode our Windows paths with quoted-wide as soon as we get them from the OS. They traverse various systems encoded, through protocols, databases, search indices and all the way to the user interface. When its time to show the path to a human, we just show &amp;lsquo;em the quoted-wide encoded version of the path. We&amp;rsquo;ve found it to be quite intuitive. &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:foo&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:foo&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;So if you are encoding Windows paths (or registry keys, or mutex names) I&amp;rsquo;d encourage you to consider quoted-wide.&lt;/p&gt;
+
+&lt;h2 id=&#34;bonus-homographs:8d9135cf35512a0bf8ea0c373870ccd5&#34;&gt;Bonus: Homographs&lt;/h2&gt;
+
+&lt;p&gt;The problem gets worse if you consider homograph attacks. A homograph is a character that is visually similar to another character but has a different encoding.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:2&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:2&#34;&gt;5&lt;/a&gt;&lt;/sup&gt; For example, consider the Cyrillic letter а (U+0430) which in most fonts is indistinguishable from the Latin letter a (U+0061). Quoted-wide allows us to distinguish these characters in a meaningful way that would be otherwise difficult.&lt;/p&gt;
+
+&lt;p&gt;Image: &lt;a href=&#34;https://www.flickr.com/photos/buenosaurus&#34;&gt;buenosaurus&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+
+&lt;hr /&gt;
+
+&lt;ol&gt;
+&lt;li id=&#34;fn:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;To be clear, I&amp;rsquo;m talking about a 7-character string here: &amp;ldquo;foo&amp;rdquo;, the newline character, and &amp;ldquo;bar&amp;rdquo;
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:8d9135cf35512a0bf8ea0c373870ccd5:mitre&#34;&gt;It seems like maybe the MITRE folks might have made some progress in this space, the &lt;a href=&#34;http://cybox.mitre.org/language/version2.0/xsddocs/extensions/platform/cpe2.3/1.0/cybox_common_xsd.html#StringObjectPropertyType&#34;&gt;cyboxCommon:StringObjectPropertyType&lt;/a&gt; which is used by a bunch of their XML-based standards seems to support pluggable string encodings. I looks around a little but couldn&amp;rsquo;t find any example of it in use other than a &lt;a href=&#34;http://making-security-measurable.1364806.n2.nabble.com/Defanging-Regular-Expression-and-base-property-examples-td7582915.html&#34;&gt;thread asking what these properties are for&lt;/a&gt;.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:8d9135cf35512a0bf8ea0c373870ccd5:mitre&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:8d9135cf35512a0bf8ea0c373870ccd5:base64&#34;&gt;I suppose you could use base64 or hex encoding, but most of the strings we encounter are probably &lt;em&gt;not&lt;/em&gt; going to be invalid and humans are pretty bad at decoding hex in their heads.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:8d9135cf35512a0bf8ea0c373870ccd5:base64&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:8d9135cf35512a0bf8ea0c373870ccd5:foo&#34;&gt;By the way this means that the QuotedWideDecode() function above has never really been used in real life. We simply do not decode our strings once we encode them.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:8d9135cf35512a0bf8ea0c373870ccd5:foo&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:8d9135cf35512a0bf8ea0c373870ccd5:2&#34;&gt;Homograph attacks came to prominence with respect to international domain names as described &lt;a href=&#34;http://www.securityninja.co.uk/hacking/what-are-homograph-attacks/&#34;&gt;here&lt;/a&gt;.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:8d9135cf35512a0bf8ea0c373870ccd5:2&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Ephemeral Encryption in AWS</title>
+      <link>http://crewjam.com/ephemeral-encryption-in-aws/</link>
+      <pubDate>Fri, 06 Mar 2015 00:00:00 +0000</pubDate>
+      
+      <guid>http://crewjam.com/ephemeral-encryption-in-aws/</guid>
+      <description>
+
+&lt;p&gt;How we use volume encryption in our AWS ephemeral disks&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;You should encrypt data at rest.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;That&amp;rsquo;s like the 8th commandment or something. Why? I can think of a few reasons:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;You are worried about a malicious insider.&lt;/li&gt;
+&lt;li&gt;You are worried about carelessness.&lt;/li&gt;
+&lt;li&gt;Someone (a regulator, probably) made you do it.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;There&amp;rsquo;s lots of snake oil out there about data encryption, particularly in the cloud. In this post I&amp;rsquo;ll share our solution for data-at-rest encryption in AWS. (Most of this is general to cloud compute providers, just in case you are one of the 38 people that use something other than AWS.)&lt;/p&gt;
+
+&lt;h1 id=&#34;throw-away-the-key:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;throw away the key&lt;/h1&gt;
+
+&lt;p&gt;Key management is super tricky to do correctly and I&amp;rsquo;m super lazy. So when we needed to do volume encryption in AWS, I looked for a way to avoid having to manage the keys.&lt;/p&gt;
+
+&lt;p&gt;Our app is hosted entirely in AWS. We receive data there, store it there and display it to the users there. Every single one of our EC2 instances uses the ephemeral store, including those for data storage. We keep the data available by using a distributed data store that replicates our data across instances (we use &lt;a href=&#34;http://www.elasticsearch.org/&#34;&gt;Elastic Search&lt;/a&gt;). &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:c7cf2966c68b514e09a6e184d4bf033a:ebs&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:c7cf2966c68b514e09a6e184d4bf033a:ebs&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;To protect the data at rest at on these instances, we create an encrypted volume and discard the key. This is from the code that runs when one of our instances first boots:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;from Crypto.PublicKey import RSA
+from Crypto import Random
+
+# ...
+
+passphrase = Random.new().read(64).encode(&amp;quot;hex&amp;quot;)
+
+# Encrypt the passphrase to the escrow key and store the encrypted
+# passphrase on the server. This is for emergencies, since we don&#39;t
+# really have any further need for the key.
+if FULL_DISK_ENCRYPTION_KEY_ESCOW_PUBLIC_KEY:
+  print &amp;quot;encrypted escrowed key at /root/.ephemeral_escrowed_key&amp;quot;
+  key = RSA.importKey(FULL_DISK_ENCRYPTION_KEY_ESCOW_PUBLIC_KEY)
+  data = key.encrypt(passphrase, None)[0].encode(&amp;quot;base64&amp;quot;)
+  file(&amp;quot;/root/.ephemeral_escrowed_key&amp;quot;, &amp;quot;w&amp;quot;).write(data)
+  os.chmod(&amp;quot;/root/.ephemeral_escrowed_key&amp;quot;, 0400)
+
+print &amp;quot;creating encrypted volume on&amp;quot;, raid_device
+subprocess.check_call(&amp;quot;echo {passphrase} | cryptsetup luksFormat &amp;quot;
+  &amp;quot;-c twofish-xts-plain64 -s 512 --key-file=- &amp;quot;
+  &amp;quot;{raid_device}&amp;quot;.format(**locals()), shell=True)
+
+subprocess.check_call(&amp;quot;echo {passphrase} | cryptsetup luksOpen &amp;quot;
+  &amp;quot;--key-file=- {raid_device} ephemeral-encrypted&amp;quot;.format(**locals()),
+  shell=True)
+
+print &amp;quot;creating filesystem on /dev/mapper/ephemeral-encrypted&amp;quot;
+subprocess.check_call([&amp;quot;mkfs&amp;quot;, &amp;quot;-t&amp;quot;, &amp;quot;ext4&amp;quot;, &amp;quot;-T&amp;quot;, &amp;quot;largefile4&amp;quot;,
+  &amp;quot;-F&amp;quot;, &amp;quot;/dev/mapper/ephemeral-encrypted&amp;quot;])
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;When we first started doing this I was nervous about cases where we&amp;rsquo;d need the key again, so I generated an RSA key-pair to escrow the volume key and kept the private part in a safe. These days we are confident enough in our approach that we don&amp;rsquo;t need to escrow the volume key any more.&lt;/p&gt;
+
+&lt;p&gt;Even though we&amp;rsquo;ve discarded our copy of the key, the kernel still has a copy. And the kernel copy is &lt;a href=&#34;http://events.ccc.de/camp/2007/Fahrplan/attachments/1300-Cryptokey_forensics_A.pdf&#34;&gt;discoverable if you have access to memory&lt;/a&gt;. The guest kernel keeps these keys in non-paged memory, but I wonder if the hypervisor respects that? If not and the hypervisor pages guest memory then the encryption key could end up on a disk somewhere.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:c7cf2966c68b514e09a6e184d4bf033a:future-work&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:c7cf2966c68b514e09a6e184d4bf033a:future-work&#34;&gt;2&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;It is probably a good idea to disable commands like &lt;code&gt;reboot&lt;/code&gt; and &lt;code&gt;shutdown&lt;/code&gt; so you don&amp;rsquo;t accidentally do something you&amp;rsquo;ll regret. We haven&amp;rsquo;t bothered to do that because we live in a world where we are (almost) never sad if we lose a machine. (Perhaps I&amp;rsquo;ll write more about that someday)&lt;/p&gt;
+
+&lt;p&gt;Some days we are sad, like when &lt;a href=&#34;http://aws.amazon.com/blogs/aws/ec2-maintenance-update/&#34;&gt;AWS needs to reboot loads of instances&lt;/a&gt; all at once. We have to make sure we stay on top of maintenance events so we don&amp;rsquo;t get too many instances needing to restart, since we have to replace rather than restart.&lt;/p&gt;
+
+&lt;p&gt;So why isn&amp;rsquo;t this crazy? Let&amp;rsquo;s go through our (admittedly informal) threat model a bit.&lt;/p&gt;
+
+&lt;h1 id=&#34;a-malicious-insider:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;A malicious insider&lt;/h1&gt;
+
+&lt;p&gt;Consider the risk that a malicious employee of Amazon steals your data.&lt;/p&gt;
+
+&lt;p&gt;Insider threat exists in all networks. The important question to consider is not &amp;ldquo;am I vulnerable to an insider?&amp;rdquo; &amp;ndash; that answer always &amp;ldquo;yes.&amp;rdquo; A better question is &amp;ldquo;am I &lt;em&gt;more&lt;/em&gt; vulnerable to insider threat in AWS than in my datacenter?&amp;rdquo; The answer to that is a little more interesting&amp;hellip;&lt;/p&gt;
+
+&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;http://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/RFControlPanel2.jpg/299px-RFControlPanel2.jpg&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;If you are using AWS for data processing, the CPUs will need access to unencrypted data (setting aside boring use cases like blind storage, or fancy impractical things like &lt;a href=&#34;http://www.wired.com/2014/11/hacker-lexicon-homomorphic-encryption/&#34;&gt;homomorphic encryption&lt;/a&gt;). So however you organize it, the key or key-equivalent to decrypt your data must be accessible to the CPUs doing the work.&lt;/p&gt;
+
+&lt;p&gt;Services like &lt;a href=&#34;http://aws.amazon.com/cloudhsm/&#34;&gt;CloudHSM&lt;/a&gt;, &lt;a href=&#34;http://aws.amazon.com/kms/&#34;&gt;KMS&lt;/a&gt;, or even &lt;a href=&#34;http://www.safenet-inc.com/data-encryption/hardware-security-modules-hsms/&#34;&gt;on-premise key management&lt;/a&gt; don&amp;rsquo;t fundamentally change this issue. If you move encryption keys (or encryption operations themselves) into a separate device, the credentials used to access that device become equivalent to the keys themselves.&lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm&#34;&gt;3&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;Fortunately, AWS are somewhat transparent about &lt;a href=&#34;http://d0.awsstatic.com/whitepapers/Security/AWS%20Security%20Whitepaper.pdf&#34;&gt;how they mitigate insider threat&lt;/a&gt;. And they seem to be doing a fairly good job. Better, perhaps than &lt;a href=&#34;http://www.datacenterknowledge.com/archives/2007/12/08/oceans-11-data-center-robbery-in-london/&#34;&gt;you are doing in your data center&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;A malicious insider at AWS faces another challenge that an on-premise attacker doesn&amp;rsquo;t: she doesn&amp;rsquo;t understand your business. The folks whose badges open the doors to your datacenter probably understand your business pretty well. They sit in company meetings, they participate in projects, etc. When they become disgruntled, they know exactly where the most important assets are to snatch. An insider at AWS, although having access to your data, might not know which data matters. Point Amazon.&lt;/p&gt;
+
+&lt;p&gt;Bottom line we can&amp;rsquo;t really mitigate insider threat with volume encryption. But at least Amazon doesn&amp;rsquo;t make the situation any worse, and it might even make it better.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Protecting data from a malicious insider is an explicit non-goal.&lt;/strong&gt; Which is lucky because it&amp;rsquo;s impossible.&lt;/p&gt;
+
+&lt;h1 id=&#34;a-careless-insider-at-aws:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;A careless insider at AWS&lt;/h1&gt;
+
+&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;http://cdn.thewire.com/img/upload/2012/10/17/rendered/88b5821e80b3b19f9813bd0c5d9919d9_623x412.jpg&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;What about the risk of carelessness by AWS? They say disks don&amp;rsquo;t leave their datacenters, but what if that is more aspirational than descriptive? &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
+
+&lt;p&gt;Data-at-rest encryption helps here. Imagine the case where the underlying disk containing your data walks out into the open. If the disk does not also include the encryption key, then it presents little risk.&lt;/p&gt;
+
+&lt;p&gt;Another not-so-crazy case to consider is multi-tenancy. Imagine a disk used to hold your data is re-provisioned to another customer. AWS claims your data will not be accessible. But what if they are wrong? Again, if the disk does not also include the encryption key, then it presents little risk.&lt;/p&gt;
+
+&lt;h1 id=&#34;compliance:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;Compliance&lt;/h1&gt;
+
+&lt;p&gt;This is the easiest. You have to do it, even if it doesn&amp;rsquo;t significantly affect your security posture. Information Security is about mitigating mission risk &amp;ndash; including the risk that your mission gets shut down because of non-compliance. So there are times when you may need to add data-at-rest encryption even when you think if presents little security value.&lt;/p&gt;
+
+&lt;h1 id=&#34;tl-dr:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;TL;DR&lt;/h1&gt;
+
+&lt;p&gt;Key management is hard. When possible, skip it. In a fault tolerant system, it should be possible. It was for us.&lt;/p&gt;
+
+&lt;p&gt;Image: &lt;a href=&#34;http://commons.wikimedia.org/wiki/User:Optx&#34;&gt;buenosaurus&lt;/a&gt;&lt;/p&gt;
+&lt;div class=&#34;footnotes&#34;&gt;
+
+&lt;hr /&gt;
+
+&lt;ol&gt;
+&lt;li id=&#34;fn:c7cf2966c68b514e09a6e184d4bf033a:ebs&#34;&gt;Part of this is an artifact of the time when EBS latency was unpredictable. Part of this is that we just don&amp;rsquo;t need to use EBS because we are replicated at the database layer.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:c7cf2966c68b514e09a6e184d4bf033a:ebs&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:c7cf2966c68b514e09a6e184d4bf033a:future-work&#34;&gt;I&amp;rsquo;d be interested to hear from you if you know or find out how this works&amp;hellip;
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:c7cf2966c68b514e09a6e184d4bf033a:future-work&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm&#34;&gt;That isn&amp;rsquo;t to say that these devices don&amp;rsquo;t provide security value. The value is in post-incident investigation, auditing, key rotation, access control and so on. These are all super important, it&amp;rsquo;s just that they don&amp;rsquo;t fundamentally change the threat model.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:c7cf2966c68b514e09a6e184d4bf033a:cloudhsm&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;li id=&#34;fn:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;I have no reason to suspect that AWS are doing anything wrong, we just want to understand the consequences if they are.
+ &lt;a class=&#34;footnote-return&#34; href=&#34;#fnref:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;&lt;sup&gt;[return]&lt;/sup&gt;&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/div&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>
