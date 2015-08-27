@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Sublime Text Configuration &amp; Notes &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/note/sublime/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-08-27T14:14:44-07:00" />
+    
+    
+
+    <title> Sublime Text Configuration &amp; Notes &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/note/sublime/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com//images/background-64258_1280.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post note">
+    <header>
+      <h1 class="page-title">Sublime Text Configuration &amp; Notes</h1>
+      <h2></h2>
+    </header>
+    <section class="post-content">
+      
+
+<h2 id="general:156810766b2e870ff15329801f943416">General</h2>
+
+<ul>
+<li>Browse Command lift: <code>⌘ shift P</code></li>
+<li>Column Mode - <code>option</code> + click</li>
+<li>Multiselect <code>⌘D</code></li>
+</ul>
+
+<p>Edit <code>~/Library/Application Support/Sublime Text 2/Packages/Makefile/Make.sublime-build</code> to support additional make targets:</p>
+
+<pre><code class="language-json">{
+	&quot;cmd&quot;: [&quot;make&quot;],
+	&quot;file_regex&quot;: &quot;^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$&quot;,
+	&quot;working_dir&quot;: &quot;${project_path:${folder:${file_path}}}&quot;,
+	&quot;selector&quot;: &quot;source.makefile&quot;,
+
+	&quot;variants&quot;:
+	[
+		{
+			&quot;name&quot;: &quot;Clean&quot;,
+			&quot;cmd&quot;: [&quot;make&quot;, &quot;clean&quot;]
+		},
+		{
+			&quot;name&quot;: &quot;Deploy&quot;,
+			&quot;cmd&quot;: [&quot;make&quot;, &quot;deploy&quot;]
+		},
+		{
+			&quot;name&quot;: &quot;Check&quot;,
+			&quot;cmd&quot;: [&quot;make&quot;, &quot;check&quot;]
+		}
+	]
+}
+</code></pre>
+
+<h2 id="plugins:156810766b2e870ff15329801f943416">Plugins</h2>
+
+<ul>
+<li>GitGutter (experminting)</li>
+<li>MarkdownEditing</li>
+</ul>
+
+<h2 id="golang:156810766b2e870ff15329801f943416">Golang</h2>
+
+<p>Useful instructions for setting up GoSublime are here: <a href="http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/">http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/</a></p>
+
+<p>My GoSublime.sublime-settings looks like:</p>
+
+<pre><code>{
+    &quot;env&quot;: {
+        &quot;GOPATH&quot;: &quot;$HOME/go&quot;,
+        &quot;PATH&quot;: &quot;/usr/local/go/bin:$GOPATH/bin:$PATH&quot;
+    },
+    &quot;fmt_cmd&quot;: [&quot;goimports&quot;],
+    &quot;comp_lint_enabled&quot;: true,
+    &quot;comp_lint_commands&quot;: [
+        {&quot;cmd&quot;: [&quot;golint *.go&quot;], &quot;shell&quot;: true},
+        {&quot;cmd&quot;: [&quot;go&quot;, &quot;vet&quot;]},
+        {&quot;cmd&quot;: [&quot;go&quot;, &quot;install&quot;]},
+    ],
+    &quot;on_save&quot;: [
+        {&quot;cmd&quot;: &quot;gs_comp_lint&quot;}
+    ]
+}
+</code></pre>
+
+<p>Helpful keybindings:</p>
+
+<pre><code>- `⌘+.` `⌘.H` - Documentation hints
+- `⌘+.` `⌘.D` - Jump to definition
+- `⌘+.` `shift-space` - Function hints
+</code></pre>
+
+<h2 id="references:156810766b2e870ff15329801f943416">References</h2>
+
+<ul>
+<li><a href="https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/">https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/</a></li>
+</ul>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-08-27T14:14:44-07:00">
+      Aug 27, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Sublime%20Text%20Configuration%20%26%20Notes&amp;url=http%3a%2f%2fcrewjam.com%2fnote%2fsublime%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2fnote%2fsublime%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2fnote%2fsublime%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+

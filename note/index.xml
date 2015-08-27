@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Notes on crewjam.com</title>
+    <link>http://crewjam.com/note/</link>
+    <description>Recent content in Notes on crewjam.com</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language>
+    <copyright>© 2015 Ross Kinder.</copyright>
+    <lastBuildDate>Thu, 27 Aug 2015 15:25:20 -0700</lastBuildDate>
+    <atom:link href="http://crewjam.com/note/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>zsh Configuration &amp; Notes</title>
+      <link>http://crewjam.com/note/zsh/</link>
+      <pubDate>Thu, 27 Aug 2015 15:25:20 -0700</pubDate>
+      
+      <guid>http://crewjam.com/note/zsh/</guid>
+      <description>&lt;p&gt;Of modern shells, I prefer &lt;strong&gt;zsh&lt;/strong&gt; over &lt;strong&gt;fish&lt;/strong&gt; because it supports POSIX standards which make it possible to do stuff like copy &amp;amp; paste &lt;code&gt;export VARNME=value&lt;/code&gt;. In virtually every other way, &lt;em&gt;fish&lt;/em&gt; is awesome.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Use oh-my-zsh&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;To get history that behaves like the bash default, in &lt;code&gt;~/.oh-my-zsh/lib/history.zsh&lt;/code&gt;
+remove &lt;code&gt;setopt share_history # share command history data&lt;/code&gt;&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;To get iTerm keybinding to work right, add to &lt;code&gt;.zshrc&lt;/code&gt;:&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code&gt;  bindkey -e
+  bindkey &#39;^[[1;9C&#39; forward-word
+  bindkey &#39;^[[1;9D&#39; backward-word
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Set up the keybindings to emit the correct escape sequence:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/iterm_zsh_arrow_keys.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Sublime Text Configuration &amp; Notes</title>
+      <link>http://crewjam.com/note/sublime/</link>
+      <pubDate>Thu, 27 Aug 2015 14:14:44 -0700</pubDate>
+      
+      <guid>http://crewjam.com/note/sublime/</guid>
+      <description>
+
+&lt;h2 id=&#34;general:156810766b2e870ff15329801f943416&#34;&gt;General&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Browse Command lift: &lt;code&gt;⌘ shift P&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Column Mode - &lt;code&gt;option&lt;/code&gt; + click&lt;/li&gt;
+&lt;li&gt;Multiselect &lt;code&gt;⌘D&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Edit &lt;code&gt;~/Library/Application Support/Sublime Text 2/Packages/Makefile/Make.sublime-build&lt;/code&gt; to support additional make targets:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-json&#34;&gt;{
+	&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;],
+	&amp;quot;file_regex&amp;quot;: &amp;quot;^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$&amp;quot;,
+	&amp;quot;working_dir&amp;quot;: &amp;quot;${project_path:${folder:${file_path}}}&amp;quot;,
+	&amp;quot;selector&amp;quot;: &amp;quot;source.makefile&amp;quot;,
+
+	&amp;quot;variants&amp;quot;:
+	[
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Clean&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;clean&amp;quot;]
+		},
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Deploy&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;deploy&amp;quot;]
+		},
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Check&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;check&amp;quot;]
+		}
+	]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;plugins:156810766b2e870ff15329801f943416&#34;&gt;Plugins&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;GitGutter (experminting)&lt;/li&gt;
+&lt;li&gt;MarkdownEditing&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;golang:156810766b2e870ff15329801f943416&#34;&gt;Golang&lt;/h2&gt;
+
+&lt;p&gt;Useful instructions for setting up GoSublime are here: &lt;a href=&#34;http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/&#34;&gt;http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;My GoSublime.sublime-settings looks like:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;{
+    &amp;quot;env&amp;quot;: {
+        &amp;quot;GOPATH&amp;quot;: &amp;quot;$HOME/go&amp;quot;,
+        &amp;quot;PATH&amp;quot;: &amp;quot;/usr/local/go/bin:$GOPATH/bin:$PATH&amp;quot;
+    },
+    &amp;quot;fmt_cmd&amp;quot;: [&amp;quot;goimports&amp;quot;],
+    &amp;quot;comp_lint_enabled&amp;quot;: true,
+    &amp;quot;comp_lint_commands&amp;quot;: [
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;golint *.go&amp;quot;], &amp;quot;shell&amp;quot;: true},
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;go&amp;quot;, &amp;quot;vet&amp;quot;]},
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;go&amp;quot;, &amp;quot;install&amp;quot;]},
+    ],
+    &amp;quot;on_save&amp;quot;: [
+        {&amp;quot;cmd&amp;quot;: &amp;quot;gs_comp_lint&amp;quot;}
+    ]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Helpful keybindings:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- `⌘+.` `⌘.H` - Documentation hints
+- `⌘+.` `⌘.D` - Jump to definition
+- `⌘+.` `shift-space` - Function hints
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;references:156810766b2e870ff15329801f943416&#34;&gt;References&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/&#34;&gt;https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -7,8 +7,124 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
     <copyright>© 2015 Ross Kinder.</copyright>
-    <lastBuildDate>Wed, 26 Aug 2015 17:59:12 -0700</lastBuildDate>
+    <lastBuildDate>Thu, 27 Aug 2015 15:25:20 -0700</lastBuildDate>
     <atom:link href="http://crewjam.com/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>zsh Configuration &amp; Notes</title>
+      <link>http://crewjam.com/note/zsh/</link>
+      <pubDate>Thu, 27 Aug 2015 15:25:20 -0700</pubDate>
+      
+      <guid>http://crewjam.com/note/zsh/</guid>
+      <description>&lt;p&gt;Of modern shells, I prefer &lt;strong&gt;zsh&lt;/strong&gt; over &lt;strong&gt;fish&lt;/strong&gt; because it supports POSIX standards which make it possible to do stuff like copy &amp;amp; paste &lt;code&gt;export VARNME=value&lt;/code&gt;. In virtually every other way, &lt;em&gt;fish&lt;/em&gt; is awesome.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Use oh-my-zsh&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;To get history that behaves like the bash default, in &lt;code&gt;~/.oh-my-zsh/lib/history.zsh&lt;/code&gt;
+remove &lt;code&gt;setopt share_history # share command history data&lt;/code&gt;&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;To get iTerm keybinding to work right, add to &lt;code&gt;.zshrc&lt;/code&gt;:&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code&gt;  bindkey -e
+  bindkey &#39;^[[1;9C&#39; forward-word
+  bindkey &#39;^[[1;9D&#39; backward-word
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Set up the keybindings to emit the correct escape sequence:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/iterm_zsh_arrow_keys.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Sublime Text Configuration &amp; Notes</title>
+      <link>http://crewjam.com/note/sublime/</link>
+      <pubDate>Thu, 27 Aug 2015 14:14:44 -0700</pubDate>
+      
+      <guid>http://crewjam.com/note/sublime/</guid>
+      <description>
+
+&lt;h2 id=&#34;general:156810766b2e870ff15329801f943416&#34;&gt;General&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Browse Command lift: &lt;code&gt;⌘ shift P&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;Column Mode - &lt;code&gt;option&lt;/code&gt; + click&lt;/li&gt;
+&lt;li&gt;Multiselect &lt;code&gt;⌘D&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Edit &lt;code&gt;~/Library/Application Support/Sublime Text 2/Packages/Makefile/Make.sublime-build&lt;/code&gt; to support additional make targets:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-json&#34;&gt;{
+	&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;],
+	&amp;quot;file_regex&amp;quot;: &amp;quot;^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$&amp;quot;,
+	&amp;quot;working_dir&amp;quot;: &amp;quot;${project_path:${folder:${file_path}}}&amp;quot;,
+	&amp;quot;selector&amp;quot;: &amp;quot;source.makefile&amp;quot;,
+
+	&amp;quot;variants&amp;quot;:
+	[
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Clean&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;clean&amp;quot;]
+		},
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Deploy&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;deploy&amp;quot;]
+		},
+		{
+			&amp;quot;name&amp;quot;: &amp;quot;Check&amp;quot;,
+			&amp;quot;cmd&amp;quot;: [&amp;quot;make&amp;quot;, &amp;quot;check&amp;quot;]
+		}
+	]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;plugins:156810766b2e870ff15329801f943416&#34;&gt;Plugins&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;GitGutter (experminting)&lt;/li&gt;
+&lt;li&gt;MarkdownEditing&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;golang:156810766b2e870ff15329801f943416&#34;&gt;Golang&lt;/h2&gt;
+
+&lt;p&gt;Useful instructions for setting up GoSublime are here: &lt;a href=&#34;http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/&#34;&gt;http://www.wolfe.id.au/2015/03/05/using-sublime-text-for-go-development/&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;My GoSublime.sublime-settings looks like:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;{
+    &amp;quot;env&amp;quot;: {
+        &amp;quot;GOPATH&amp;quot;: &amp;quot;$HOME/go&amp;quot;,
+        &amp;quot;PATH&amp;quot;: &amp;quot;/usr/local/go/bin:$GOPATH/bin:$PATH&amp;quot;
+    },
+    &amp;quot;fmt_cmd&amp;quot;: [&amp;quot;goimports&amp;quot;],
+    &amp;quot;comp_lint_enabled&amp;quot;: true,
+    &amp;quot;comp_lint_commands&amp;quot;: [
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;golint *.go&amp;quot;], &amp;quot;shell&amp;quot;: true},
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;go&amp;quot;, &amp;quot;vet&amp;quot;]},
+        {&amp;quot;cmd&amp;quot;: [&amp;quot;go&amp;quot;, &amp;quot;install&amp;quot;]},
+    ],
+    &amp;quot;on_save&amp;quot;: [
+        {&amp;quot;cmd&amp;quot;: &amp;quot;gs_comp_lint&amp;quot;}
+    ]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Helpful keybindings:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;- `⌘+.` `⌘.H` - Documentation hints
+- `⌘+.` `⌘.D` - Jump to definition
+- `⌘+.` `shift-space` - Function hints
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;references:156810766b2e870ff15329801f943416&#34;&gt;References&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/&#34;&gt;https://blog.generalassemb.ly/sublime-text-3-tips-tricks-shortcuts/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
     
     <item>
       <title>Yubikey for Local Authentication on Mac</title>
@@ -983,20 +1099,20 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;The bubble says that &lt;code&gt;&amp;lt;&lt;/code&gt; is not allowed in filenames so lets see what happens when we try to create a file with &lt;code&gt;&amp;lt;&lt;/code&gt; in it.&lt;/p&gt;
 
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #75715e&#34;&gt;// cl test.cc &amp;amp; test.exe&lt;/span&gt;
+&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;windows.h&amp;gt;&lt;/span&gt;
+&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
 
-// cl test.cc &amp; test.exe
-#include &lt;windows.h&gt;
-#include &lt;stdio.h&gt;
-
-int main() {
-  wchar_t path[] = L&#34;a&lt;b&#34;;
-  CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;span style=&#34;color: #66d9ef&#34;&gt;int&lt;/span&gt; &lt;span style=&#34;color: #a6e22e&#34;&gt;main&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;()&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;
+  &lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;a&amp;lt;b&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
   
-  LPVOID lastErrorString;
-  DWORD lastError = GetLastError();
-  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError, 0, (LPTSTR) &amp;lastErrorString, 0, NULL);
-  printf(&#34;error: %d %s\n&#34;, lastError, lastErrorString);
-}
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;LPVOID&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString;&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;DWORD&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GetLastError();&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_FROM_SYSTEM&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_IGNORE_INSERTS,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;(LPTSTR)&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+  &lt;span style=&#34;color: #f8f8f2&#34;&gt;printf(&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;error: %d %s&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString);&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This program produces:&lt;/p&gt;
@@ -1010,9 +1126,9 @@ int main() {
 
 &lt;p&gt;Even though it is invalid, procmon is telling us the path we &lt;em&gt;attempted&lt;/em&gt; to open. Lets try creating a file named 你好世界.&lt;/p&gt;
 
-
-wchar_t path[5] = {0x4F60, 0x597D, 0x4E16, 0x754C, 0x0};
-CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;5&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0x4F60&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x597D&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x4E16&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x754C&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;&lt;img src=&#34;http://crewjam.com/images/procmon3.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
@@ -1021,9 +1137,9 @@ CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NUL
 
 &lt;p&gt;What happens if we try to create a file called &lt;code&gt;foo\nbar&lt;/code&gt;? &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
-
-wchar_t path[] = L&#34;foo\nbar&#34;;
-CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;foo&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;bar&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This program produces&lt;/p&gt;
@@ -1041,9 +1157,9 @@ CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NUL
 
 &lt;p&gt;UTF-16 code points &lt;a href=&#34;http://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF&#34;&gt;between 0xd800 and 0xdfff are invalid&lt;/a&gt;. Let&amp;rsquo;s see what happens if we try to create a file with invalid UTF-16.&lt;/p&gt;
 
-
-wchar_t path[2] = {0xd801, 0x0000};
-CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;2&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0xd801&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0000&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
+&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
 
 
 &lt;p&gt;This program produces&lt;/p&gt;
