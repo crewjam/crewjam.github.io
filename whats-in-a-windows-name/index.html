@@ -100,20 +100,20 @@
 
 <p>The bubble says that <code>&lt;</code> is not allowed in filenames so lets see what happens when we try to create a file with <code>&lt;</code> in it.</p>
 
-<div class="highlight" style="background: #272822"><pre style="line-height: 125%"><span style="color: #75715e">// cl test.cc &amp; test.exe</span>
-<span style="color: #75715e">#include &lt;windows.h&gt;</span>
-<span style="color: #75715e">#include &lt;stdio.h&gt;</span>
 
-<span style="color: #66d9ef">int</span> <span style="color: #a6e22e">main</span><span style="color: #f8f8f2">()</span> <span style="color: #f8f8f2">{</span>
-  <span style="color: #66d9ef">wchar_t</span> <span style="color: #f8f8f2">path[]</span> <span style="color: #f92672">=</span> <span style="color: #e6db74">L&quot;a&lt;b&quot;</span><span style="color: #f8f8f2">;</span>
-  <span style="color: #f8f8f2">CreateFileW(path,</span> <span style="color: #f8f8f2">GENERIC_WRITE,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">NULL,</span> <span style="color: #f8f8f2">CREATE_NEW,</span> <span style="color: #f8f8f2">FILE_ATTRIBUTE_NORMAL,</span> <span style="color: #f8f8f2">NULL);</span>
+// cl test.cc & test.exe
+#include <windows.h>
+#include <stdio.h>
+
+int main() {
+  wchar_t path[] = L"a<b";
+  CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
   
-  <span style="color: #f8f8f2">LPVOID</span> <span style="color: #f8f8f2">lastErrorString;</span>
-  <span style="color: #f8f8f2">DWORD</span> <span style="color: #f8f8f2">lastError</span> <span style="color: #f92672">=</span> <span style="color: #f8f8f2">GetLastError();</span>
-  <span style="color: #f8f8f2">FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER</span> <span style="color: #f92672">|</span> <span style="color: #f8f8f2">FORMAT_MESSAGE_FROM_SYSTEM</span> <span style="color: #f92672">|</span> <span style="color: #f8f8f2">FORMAT_MESSAGE_IGNORE_INSERTS,</span> <span style="color: #f8f8f2">NULL,</span> <span style="color: #f8f8f2">lastError,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">(LPTSTR)</span> <span style="color: #f92672">&amp;</span><span style="color: #f8f8f2">lastErrorString,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">NULL);</span>
-  <span style="color: #f8f8f2">printf(</span><span style="color: #e6db74">&quot;error: %d %s</span><span style="color: #ae81ff">\n</span><span style="color: #e6db74">&quot;</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">lastError,</span> <span style="color: #f8f8f2">lastErrorString);</span>
-<span style="color: #f8f8f2">}</span>
-</pre></div>
+  LPVOID lastErrorString;
+  DWORD lastError = GetLastError();
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError, 0, (LPTSTR) &lastErrorString, 0, NULL);
+  printf("error: %d %s\n", lastError, lastErrorString);
+}
 
 
 <p>This program produces:</p>
@@ -127,9 +127,9 @@
 
 <p>Even though it is invalid, procmon is telling us the path we <em>attempted</em> to open. Lets try creating a file named 你好世界.</p>
 
-<div class="highlight" style="background: #272822"><pre style="line-height: 125%"><span style="color: #66d9ef">wchar_t</span> <span style="color: #f8f8f2">path[</span><span style="color: #ae81ff">5</span><span style="color: #f8f8f2">]</span> <span style="color: #f92672">=</span> <span style="color: #f8f8f2">{</span><span style="color: #ae81ff">0x4F60</span><span style="color: #f8f8f2">,</span> <span style="color: #ae81ff">0x597D</span><span style="color: #f8f8f2">,</span> <span style="color: #ae81ff">0x4E16</span><span style="color: #f8f8f2">,</span> <span style="color: #ae81ff">0x754C</span><span style="color: #f8f8f2">,</span> <span style="color: #ae81ff">0x0</span><span style="color: #f8f8f2">};</span>
-<span style="color: #f8f8f2">CreateFileW(path,</span> <span style="color: #f8f8f2">GENERIC_WRITE,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">NULL,</span> <span style="color: #f8f8f2">CREATE_NEW,</span> <span style="color: #f8f8f2">FILE_ATTRIBUTE_NORMAL,</span> <span style="color: #f8f8f2">NULL);</span>
-</pre></div>
+
+wchar_t path[5] = {0x4F60, 0x597D, 0x4E16, 0x754C, 0x0};
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 
 
 <p><img src="/images/procmon3.png" alt="" /></p>
@@ -138,9 +138,9 @@
 
 <p>What happens if we try to create a file called <code>foo\nbar</code>? <sup class="footnote-ref" id="fnref:8d9135cf35512a0bf8ea0c373870ccd5:newline"><a rel="footnote" href="#fn:8d9135cf35512a0bf8ea0c373870ccd5:newline">1</a></sup></p>
 
-<div class="highlight" style="background: #272822"><pre style="line-height: 125%"><span style="color: #66d9ef">wchar_t</span> <span style="color: #f8f8f2">path[]</span> <span style="color: #f92672">=</span> <span style="color: #e6db74">L&quot;foo</span><span style="color: #ae81ff">\n</span><span style="color: #e6db74">bar&quot;</span><span style="color: #f8f8f2">;</span>
-<span style="color: #f8f8f2">CreateFileW(path,</span> <span style="color: #f8f8f2">GENERIC_WRITE,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">NULL,</span> <span style="color: #f8f8f2">CREATE_NEW,</span> <span style="color: #f8f8f2">FILE_ATTRIBUTE_NORMAL,</span> <span style="color: #f8f8f2">NULL);</span>
-</pre></div>
+
+wchar_t path[] = L"foo\nbar";
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 
 
 <p>This program produces</p>
@@ -158,9 +158,9 @@
 
 <p>UTF-16 code points <a href="http://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF">between 0xd800 and 0xdfff are invalid</a>. Let&rsquo;s see what happens if we try to create a file with invalid UTF-16.</p>
 
-<div class="highlight" style="background: #272822"><pre style="line-height: 125%"><span style="color: #66d9ef">wchar_t</span> <span style="color: #f8f8f2">path[</span><span style="color: #ae81ff">2</span><span style="color: #f8f8f2">]</span> <span style="color: #f92672">=</span> <span style="color: #f8f8f2">{</span><span style="color: #ae81ff">0xd801</span><span style="color: #f8f8f2">,</span> <span style="color: #ae81ff">0x0000</span><span style="color: #f8f8f2">};</span>
-<span style="color: #f8f8f2">CreateFileW(path,</span> <span style="color: #f8f8f2">GENERIC_WRITE,</span> <span style="color: #ae81ff">0</span><span style="color: #f8f8f2">,</span> <span style="color: #f8f8f2">NULL,</span> <span style="color: #f8f8f2">CREATE_NEW,</span> <span style="color: #f8f8f2">FILE_ATTRIBUTE_NORMAL,</span> <span style="color: #f8f8f2">NULL);</span>
-</pre></div>
+
+wchar_t path[2] = {0xd801, 0x0000};
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 
 
 <p>This program produces</p>
