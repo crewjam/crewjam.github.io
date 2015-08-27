@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Yubikey for Local Authentication on Mac &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="http://crewjam.com/yubikey-for-local-authentication-on-mac/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-08-26T17:59:12-07:00" />
+    
+    
+
+    <title> Yubikey for Local Authentication on Mac &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="http://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="http://crewjam.com/index.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="http://crewjam.com/yubikey-for-local-authentication-on-mac/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="http://crewjam.com//css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(http://crewjam.com//images/key.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Yubikey for Local Authentication on Mac</h1>
+      <h2>how I set up OS X to require a Yubikey for local login</h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>How I set up OS X to require a Yubikey for local login.</p>
+
+<p>A YubiKey is a small hardware device that offers two-factor authentication with a simple touch of a button. It appears like a USB human interface device (read: keyboard) and under normal conditions, when you press the button, it emits some random characters as if you typed them.</p>
+
+<p><img src="/images/yubikey-hid.gif" alt="" /></p>
+
+<p>The garbage printed is actually a proprietary one-time-pad which can be verified against a network service.</p>
+
+<h2 id="challenge-and-response:49a8fbad506e0b3dd09d280f8def04ea">Challenge and Response</h2>
+
+<p>I wanted my mac to require my YubiKey in order to log in locally. Using a OTP that must be verified over the network isn&rsquo;t going to cut it.</p>
+
+<p>Fortunately yubikeys support a challenge &amp; response mode. In this mode supported software issues a challenge to the Yubikey (some random bytes), and the Yubikey uses the secret key only it knows to sign those random bytes. The signature becomes the response.</p>
+
+<p>The host system can verify that an authorized yubikey is present by validating the signature.</p>
+
+<h2 id="configuring-your-yubikey:49a8fbad506e0b3dd09d280f8def04ea">Configuring your Yubikey</h2>
+
+<p>Configure your Yubikey for challenge-response. I used the Yubikey Personalization tool and slot #2 of my Yubikey.</p>
+
+<p><img src="/images/YubiKey_Personalization_Tool_and_MacOS_X_Challenge-Response.png" alt="" /></p>
+
+<h2 id="configuring-pam-on-osx:49a8fbad506e0b3dd09d280f8def04ea">Configuring PAM on OSX</h2>
+
+<p>PAM is the software that manages the rules for authenticating users. Yubico provide a PAM module the supports Yubikey in Challenge-Response mode.</p>
+
+<p>Install the yubikey PAM module:</p>
+
+<pre><code>brew install yubico-pam
+</code></pre>
+
+<p>The challenge data are stored per user in <code>~/.yubico</code>.</p>
+
+<pre><code>mkdir -m0700 -p ~/.yubico
+ykpamcfg -2
+</code></pre>
+
+<h2 id="dipping-a-toe-in:49a8fbad506e0b3dd09d280f8def04ea">Dipping a toe in</h2>
+
+<p>I was concerned about locking myself out, so to start I only worked on the lock screen. That way if I broke the configuration, a simple reboot would get me logged back in.</p>
+
+<p>The file that controls the rules for unlocking the screen when it is locked is <code>/etc/pam.d/screensaver</code>. I added a line referencing the new PAM module:</p>
+
+<pre><code>    # screensaver: auth account
+    auth required /usr/local/Cellar/pam_yubico/2.16/lib/security/pam_yubico.so mode=challenge-response
+    auth       optional       pam_krb5.so use_first_pass use_kcminit
+    auth       required       pam_opendirectory.so use_first_pass nullok
+    account    required       pam_opendirectory.so
+    account    sufficient     pam_self.so
+    account    required       pam_group.so no_warn group=admin,wheel fail_safe
+    account    required       pam_group.so no_warn deny group=admin,wheel ruser fail_safe
+</code></pre>
+
+<p>If your version of <code>pam_yubico</code> is different than <code>2.16</code> you&rsquo;ll want to specify a slightly different path here.</p>
+
+<h2 id="taking-the-plunge:49a8fbad506e0b3dd09d280f8def04ea">Taking the plunge</h2>
+
+<p>The file that controls the rules for initial login is <code>/etc/pam.d/authorization</code>. I added the same line from the screensaver and all works as expected.</p>
+
+<pre><code># authorization: auth account
+auth required /usr/local/Cellar/pam_yubico/2.16/lib/security/pam_yubico.so mode=challenge-response
+auth       optional       pam_krb5.so use_first_pass use_kcminit
+auth       optional       pam_ntlm.so use_first_pass
+auth       required       pam_opendirectory.so use_first_pass nullok
+account    required       pam_opendirectory.so
+</code></pre>
+
+<h2 id="user-experience:49a8fbad506e0b3dd09d280f8def04ea">User Experience</h2>
+
+<p>There is no user interface to speak of. There is no little box that prompts you to insert your token. The light starts flashing and you push the button twice.</p>
+
+<p><img src="/images/yubikey-ux.gif" alt="" /></p>
+
+<h2 id="caveats:49a8fbad506e0b3dd09d280f8def04ea">Caveats</h2>
+
+<p>If you use full disk encryption, the key is derived only from the password. This makes it inferior to the old eToken + PGP desktop thing we used to do on Windows.</p>
+
+<h2 id="references:49a8fbad506e0b3dd09d280f8def04ea">References</h2>
+
+<ul>
+<li><a href="https://developers.yubico.com/yubico-pam/MacOS_X_Challenge-Response.html">https://developers.yubico.com/yubico-pam/MacOS_X_Challenge-Response.html</a></li>
+<li><a href="http://linux.die.net/man/1/ykpamcfg">http://linux.die.net/man/1/ykpamcfg</a></li>
+</ul>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-08-26T17:59:12-07:00">
+      Aug 26, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Yubikey%20for%20Local%20Authentication%20on%20Mac&amp;url=http%3a%2f%2fcrewjam.com%2fyubikey-for-local-authentication-on-mac%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=http%3a%2f%2fcrewjam.com%2fyubikey-for-local-authentication-on-mac%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=http%3a%2f%2fcrewjam.com%2fyubikey-for-local-authentication-on-mac%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+</body>
+</html>
+
