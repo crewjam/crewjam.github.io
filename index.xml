@@ -134,6 +134,159 @@ REVXXXX3 fix typos
     </item>
     
     <item>
+      <title>Command line helpers for Gerrit</title>
+      <link>https://crewjam.com/command-line-helpers-for-gerrit/</link>
+      <pubDate>Thu, 27 Aug 2015 15:40:05 -0700</pubDate>
+      
+      <guid>https://crewjam.com/command-line-helpers-for-gerrit/</guid>
+      <description>
+
+&lt;p&gt;At work we use Gerrit for pre-commit code review. I &lt;a href=&#34;https://crewjam.com/gerrit-code-review/&#34;&gt;described the reasons previously&lt;/a&gt;. Here are some handy shell helpers to make working with gerrit reviews a bit quicker. The full script is &lt;a href=&#34;https://crewjam.com/gerrit-helpers.sh&#34;&gt;here&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Assumptions:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;These examples assume you have a code review server at &lt;code&gt;review.example.com&lt;/code&gt;, although obviously yours will be somewhere else.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;These examples assume you have a git remote named &lt;code&gt;review&lt;/code&gt; that defines
+your code review server. A partial &lt;code&gt;.git/config&lt;/code&gt; might look like:&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-git&#34;&gt;  [remote &amp;quot;review&amp;quot;]
+    url = ssh://alice@review.example.com/project
+    fetch = +refs/heads/*:refs/remotes/review/*
+    push = HEAD:refs/for/master
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;ul&gt;
+&lt;li&gt;You have &lt;code&gt;git&lt;/code&gt; (obviously), &lt;code&gt;ssh&lt;/code&gt;, and &lt;code&gt;jq&lt;/code&gt; (from &lt;a href=&#34;https://stedolan.github.io/jq/&#34;&gt;here&lt;/a&gt;) in your path.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;basic-information:3b3ee27c073bffa1fce542f6719b1b54&#34;&gt;Basic Information&lt;/h2&gt;
+
+&lt;p&gt;Show basic information about a single CL, or the currently open CLs. Useful to know the general status of a project.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# prints information about the specified patchset or all patchsets
+cl() {
+  n=$1
+  if [ ! -z &amp;quot;$n&amp;quot; ] ; then
+    ssh review.example.com gerrit query --current-patch-set $n
+    return $?
+  fi
+  ssh review.example.com gerrit query --format=JSON --current-patch-set &amp;quot;is:open&amp;quot; | (
+    while read line
+    do
+      n=$(echo $line | jq -r &#39;.number&#39;)
+      app=$(echo $line | jq &#39;.currentPatchSet.approvals[]? | .by.username + &amp;quot;:&amp;quot; + .type + &amp;quot; &amp;quot; + .value&#39;)
+      echo $n $(echo $line | jq -r &#39;.subject&#39;) $app
+    done
+  )
+  
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Here is what it looks like right now when I run it against our code review server:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_helpers_cl.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Viewing a single change (this could be a lot prettier!):&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_helpers_cl_2.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;switching-around:3b3ee27c073bffa1fce542f6719b1b54&#34;&gt;Switching Around&lt;/h2&gt;
+
+&lt;p&gt;Various functions for switching the current checkout to a specific change or with to the master.&lt;/p&gt;
+
+&lt;p&gt;Checks out the specified patchset:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# checks out the specified patchset
+clco() {
+  cl=$1
+  ref=$(clref $cl)
+  git fetch review $ref &amp;amp;&amp;amp; git checkout FETCH_HEAD
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Cherry-picks the specified patchset:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# cherry-picks the specified patchset
+clcp() {
+  cl=$1
+  ref=$(clref $cl)
+  git fetch review $ref &amp;amp;&amp;amp; git cherry-pick FETCH_HEAD
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Updates and switches to the master:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# updates and switches to the master
+clmaster() {
+  git fetch review master &amp;amp;&amp;amp; git checkout FETCH_HEAD
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;workflow:3b3ee27c073bffa1fce542f6719b1b54&#34;&gt;Workflow&lt;/h2&gt;
+
+&lt;p&gt;The &lt;code&gt;ptal&lt;/code&gt; (&amp;ldquo;please take a look&amp;rdquo;) command is a handy way to ask for a review. We use a custom flag called &lt;code&gt;Ready&lt;/code&gt; that has the following semantics:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;-1&lt;/em&gt; - broken, lease ignore&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;0&lt;/em&gt; - not ready for review&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;+1&lt;/em&gt; - work in progress, feedback requested&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;+2&lt;/em&gt; - ready for final review&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;This command marks the specified change as ready for review.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# marks the specified change as ready for review. PTAL == please take a look
+ptal() {
+  cl=$1
+  ps=$(clps $cl)
+  ssh review.example.com gerrit review $cl,$ps --ready +2
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;testing:3b3ee27c073bffa1fce542f6719b1b54&#34;&gt;Testing&lt;/h2&gt;
+
+&lt;p&gt;I&amp;rsquo;ll write more about how we run tests and verify them in a future post, but for now just know that somebody has to vote &lt;code&gt;Verified&lt;/code&gt; to &lt;code&gt;+1&lt;/code&gt;, meaning that the tests pass, before we land a change. This command triggers tests for the specified CL:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# run the verify command on the specified CL
+clverify() {
+  cl=$1
+  dir=$(cd $(git rev-parse --git-dir)/..; pwd)
+  (cd $dir; go run ./tools/verify.go --cl $cl)
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;helper-functions:3b3ee27c073bffa1fce542f6719b1b54&#34;&gt;Helper Functions&lt;/h2&gt;
+
+&lt;p&gt;These little helpers were used above.&lt;/p&gt;
+
+&lt;p&gt;Prints the current patchset for a change, i.e. &lt;code&gt;2&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# prints the current patchset for a change
+clps() {
+  cl=$1
+  ssh review.example.com gerrit query --current-patch-set --format=JSON $cl |\
+    jq -r .currentPatchSet.number |\
+    head -n1
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Prints the current ref for a change. i.e. &lt;code&gt;refs/changes/57/57/2&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;# prints the current ref for a change. i.e. `refs/changes/99/99/4`
+clref() {
+  cl=$1
+  ssh review.example.com gerrit query --current-patch-set --format=JSON $cl |\
+    jq -r .currentPatchSet.ref |\
+    head -n1
+}
+&lt;/code&gt;&lt;/pre&gt;
+</description>
+    </item>
+    
+    <item>
       <title>zsh Configuration &amp; Notes</title>
       <link>https://crewjam.com/note/zsh/</link>
       <pubDate>Thu, 27 Aug 2015 15:25:20 -0700</pubDate>

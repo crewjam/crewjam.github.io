@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Command line helpers for Gerrit &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="https://crewjam.com/command-line-helpers-for-gerrit/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-08-27T15:40:05-07:00" />
+    
+    
+
+    <title> Command line helpers for Gerrit &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="https://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="https://crewjam.comindex.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="https://crewjam.com/command-line-helpers-for-gerrit/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/css/lightbox.min.css">
+    <link rel="stylesheet" href="https://crewjam.com/css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(https://crewjam.com/images/il_570xN.483625064_rldm.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Command line helpers for Gerrit</h1>
+      <h2></h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>At work we use Gerrit for pre-commit code review. I <a href="/gerrit-code-review/">described the reasons previously</a>. Here are some handy shell helpers to make working with gerrit reviews a bit quicker. The full script is <a href="/gerrit-helpers.sh">here</a></p>
+
+<p>Assumptions:</p>
+
+<ul>
+<li><p>These examples assume you have a code review server at <code>review.example.com</code>, although obviously yours will be somewhere else.</p></li>
+
+<li><p>These examples assume you have a git remote named <code>review</code> that defines
+your code review server. A partial <code>.git/config</code> might look like:</p></li>
+</ul>
+
+<pre><code class="language-git">  [remote &quot;review&quot;]
+    url = ssh://alice@review.example.com/project
+    fetch = +refs/heads/*:refs/remotes/review/*
+    push = HEAD:refs/for/master
+</code></pre>
+
+<ul>
+<li>You have <code>git</code> (obviously), <code>ssh</code>, and <code>jq</code> (from <a href="https://stedolan.github.io/jq/">here</a>) in your path.</li>
+</ul>
+
+<h2 id="basic-information:3b3ee27c073bffa1fce542f6719b1b54">Basic Information</h2>
+
+<p>Show basic information about a single CL, or the currently open CLs. Useful to know the general status of a project.</p>
+
+<pre><code class="language-bash"># prints information about the specified patchset or all patchsets
+cl() {
+  n=$1
+  if [ ! -z &quot;$n&quot; ] ; then
+    ssh review.example.com gerrit query --current-patch-set $n
+    return $?
+  fi
+  ssh review.example.com gerrit query --format=JSON --current-patch-set &quot;is:open&quot; | (
+    while read line
+    do
+      n=$(echo $line | jq -r '.number')
+      app=$(echo $line | jq '.currentPatchSet.approvals[]? | .by.username + &quot;:&quot; + .type + &quot; &quot; + .value')
+      echo $n $(echo $line | jq -r '.subject') $app
+    done
+  )
+  
+}
+</code></pre>
+
+<p>Here is what it looks like right now when I run it against our code review server:</p>
+
+<p><img src="/images/gerrit_helpers_cl.png" alt="" /></p>
+
+<p>Viewing a single change (this could be a lot prettier!):</p>
+
+<p><img src="/images/gerrit_helpers_cl_2.png" alt="" /></p>
+
+<h2 id="switching-around:3b3ee27c073bffa1fce542f6719b1b54">Switching Around</h2>
+
+<p>Various functions for switching the current checkout to a specific change or with to the master.</p>
+
+<p>Checks out the specified patchset:</p>
+
+<pre><code class="language-bash"># checks out the specified patchset
+clco() {
+  cl=$1
+  ref=$(clref $cl)
+  git fetch review $ref &amp;&amp; git checkout FETCH_HEAD
+}
+</code></pre>
+
+<p>Cherry-picks the specified patchset:</p>
+
+<pre><code class="language-bash"># cherry-picks the specified patchset
+clcp() {
+  cl=$1
+  ref=$(clref $cl)
+  git fetch review $ref &amp;&amp; git cherry-pick FETCH_HEAD
+}
+</code></pre>
+
+<p>Updates and switches to the master:</p>
+
+<pre><code class="language-bash"># updates and switches to the master
+clmaster() {
+  git fetch review master &amp;&amp; git checkout FETCH_HEAD
+}
+</code></pre>
+
+<h2 id="workflow:3b3ee27c073bffa1fce542f6719b1b54">Workflow</h2>
+
+<p>The <code>ptal</code> (&ldquo;please take a look&rdquo;) command is a handy way to ask for a review. We use a custom flag called <code>Ready</code> that has the following semantics:</p>
+
+<ul>
+<li><em>-1</em> - broken, lease ignore</li>
+<li><em>0</em> - not ready for review</li>
+<li><em>+1</em> - work in progress, feedback requested</li>
+<li><em>+2</em> - ready for final review</li>
+</ul>
+
+<p>This command marks the specified change as ready for review.</p>
+
+<pre><code class="language-bash"># marks the specified change as ready for review. PTAL == please take a look
+ptal() {
+  cl=$1
+  ps=$(clps $cl)
+  ssh review.example.com gerrit review $cl,$ps --ready +2
+}
+</code></pre>
+
+<h2 id="testing:3b3ee27c073bffa1fce542f6719b1b54">Testing</h2>
+
+<p>I&rsquo;ll write more about how we run tests and verify them in a future post, but for now just know that somebody has to vote <code>Verified</code> to <code>+1</code>, meaning that the tests pass, before we land a change. This command triggers tests for the specified CL:</p>
+
+<pre><code class="language-bash"># run the verify command on the specified CL
+clverify() {
+  cl=$1
+  dir=$(cd $(git rev-parse --git-dir)/..; pwd)
+  (cd $dir; go run ./tools/verify.go --cl $cl)
+}
+</code></pre>
+
+<h2 id="helper-functions:3b3ee27c073bffa1fce542f6719b1b54">Helper Functions</h2>
+
+<p>These little helpers were used above.</p>
+
+<p>Prints the current patchset for a change, i.e. <code>2</code>:</p>
+
+<pre><code class="language-bash"># prints the current patchset for a change
+clps() {
+  cl=$1
+  ssh review.example.com gerrit query --current-patch-set --format=JSON $cl |\
+    jq -r .currentPatchSet.number |\
+    head -n1
+}
+</code></pre>
+
+<p>Prints the current ref for a change. i.e. <code>refs/changes/57/57/2</code>:</p>
+
+<pre><code class="language-bash"># prints the current ref for a change. i.e. `refs/changes/99/99/4`
+clref() {
+  cl=$1
+  ssh review.example.com gerrit query --current-patch-set --format=JSON $cl |\
+    jq -r .currentPatchSet.ref |\
+    head -n1
+}
+</code></pre>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-08-27T15:40:05-07:00">
+      Aug 27, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Command%20line%20helpers%20for%20Gerrit&amp;url=https%3a%2f%2fcrewjam.com%2fcommand-line-helpers-for-gerrit%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=https%3a%2f%2fcrewjam.com%2fcommand-line-helpers-for-gerrit%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=https%3a%2f%2fcrewjam.com%2fcommand-line-helpers-for-gerrit%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/js/lightbox.min.js"></script>
+</body>
+</html>
+
