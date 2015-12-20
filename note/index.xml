@@ -2,20 +2,20 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Notes on crewjam.com</title>
-    <link>/note/</link>
+    <link>https://crewjam.com/note/</link>
     <description>Recent content in Notes on crewjam.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
     <copyright>© 2015 Ross Kinder.</copyright>
     <lastBuildDate>Thu, 27 Aug 2015 15:25:20 -0700</lastBuildDate>
-    <atom:link href="/note/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://crewjam.com/note/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
       <title>zsh Configuration &amp; Notes</title>
-      <link>/note/zsh/</link>
+      <link>https://crewjam.com/note/zsh/</link>
       <pubDate>Thu, 27 Aug 2015 15:25:20 -0700</pubDate>
       
-      <guid>/note/zsh/</guid>
+      <guid>https://crewjam.com/note/zsh/</guid>
       <description>&lt;p&gt;Of modern shells, I prefer &lt;strong&gt;zsh&lt;/strong&gt; over &lt;strong&gt;fish&lt;/strong&gt; because it supports POSIX standards which make it possible to do stuff like copy &amp;amp; paste &lt;code&gt;export VARNME=value&lt;/code&gt;. In virtually every other way, &lt;em&gt;fish&lt;/em&gt; is awesome.&lt;/p&gt;
 
 &lt;ul&gt;
@@ -34,16 +34,16 @@ remove &lt;code&gt;setopt share_history # share command history data&lt;/code&gt
 
 &lt;p&gt;Set up the keybindings to emit the correct escape sequence:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/iterm_zsh_arrow_keys.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/iterm_zsh_arrow_keys.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 </description>
     </item>
     
     <item>
       <title>Sublime Text Configuration &amp; Notes</title>
-      <link>/note/sublime/</link>
+      <link>https://crewjam.com/note/sublime/</link>
       <pubDate>Thu, 27 Aug 2015 14:14:44 -0700</pubDate>
       
-      <guid>/note/sublime/</guid>
+      <guid>https://crewjam.com/note/sublime/</guid>
       <description>
 
 &lt;h2 id=&#34;general:156810766b2e870ff15329801f943416&#34;&gt;General&lt;/h2&gt;

@@ -2,27 +2,27 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Posts on crewjam.com</title>
-    <link>/post/</link>
+    <link>https://crewjam.com/post/</link>
     <description>Recent content in Posts on crewjam.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
     <copyright>© 2015 Ross Kinder.</copyright>
     <lastBuildDate>Wed, 26 Aug 2015 17:59:12 -0700</lastBuildDate>
-    <atom:link href="/post/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://crewjam.com/post/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
       <title>Yubikey for Local Authentication on Mac</title>
-      <link>/yubikey-for-local-authentication-on-mac/</link>
+      <link>https://crewjam.com/yubikey-for-local-authentication-on-mac/</link>
       <pubDate>Wed, 26 Aug 2015 17:59:12 -0700</pubDate>
       
-      <guid>/yubikey-for-local-authentication-on-mac/</guid>
+      <guid>https://crewjam.com/yubikey-for-local-authentication-on-mac/</guid>
       <description>
 
 &lt;p&gt;How I set up OS X to require a Yubikey for local login.&lt;/p&gt;
 
 &lt;p&gt;A YubiKey is a small hardware device that offers two-factor authentication with a simple touch of a button. It appears like a USB human interface device (read: keyboard) and under normal conditions, when you press the button, it emits some random characters as if you typed them.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/yubikey-hid.gif&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/yubikey-hid.gif&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;The garbage printed is actually a proprietary one-time-pad which can be verified against a network service.&lt;/p&gt;
 
@@ -38,7 +38,7 @@
 
 &lt;p&gt;Configure your Yubikey for challenge-response. I used the Yubikey Personalization tool and slot #2 of my Yubikey.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/YubiKey_Personalization_Tool_and_MacOS_X_Challenge-Response.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/YubiKey_Personalization_Tool_and_MacOS_X_Challenge-Response.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;h2 id=&#34;configuring-pam-on-osx:49a8fbad506e0b3dd09d280f8def04ea&#34;&gt;Configuring PAM on OSX&lt;/h2&gt;
 
@@ -89,7 +89,7 @@ account    required       pam_opendirectory.so
 
 &lt;p&gt;There is no user interface to speak of. There is no little box that prompts you to insert your token. The light starts flashing and you push the button twice.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/yubikey-ux.gif&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/yubikey-ux.gif&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;h2 id=&#34;caveats:49a8fbad506e0b3dd09d280f8def04ea&#34;&gt;Caveats&lt;/h2&gt;
 
@@ -106,10 +106,10 @@ account    required       pam_opendirectory.so
     
     <item>
       <title>Tiny Docker &#43; Go Pattern</title>
-      <link>/tiny-docker--go-pattern/</link>
+      <link>https://crewjam.com/tiny-docker--go-pattern/</link>
       <pubDate>Wed, 22 Jul 2015 00:00:00 +0000</pubDate>
       
-      <guid>/tiny-docker--go-pattern/</guid>
+      <guid>https://crewjam.com/tiny-docker--go-pattern/</guid>
       <description>
 
 &lt;p&gt;Docker is a handy way to deploy applications, and &lt;a href=&#34;http://golang.org&#34;&gt;Go&lt;/a&gt; is handy way to build them. Here is how we build Docker containers for small apps.&lt;/p&gt;
@@ -145,10 +145,10 @@ CMD [&amp;quot;/frobnicator&amp;quot;]
     
     <item>
       <title>Docker build environments</title>
-      <link>/docker-build-environments/</link>
+      <link>https://crewjam.com/docker-build-environments/</link>
       <pubDate>Tue, 21 Jul 2015 00:00:00 +0000</pubDate>
       
-      <guid>/docker-build-environments/</guid>
+      <guid>https://crewjam.com/docker-build-environments/</guid>
       <description>
 
 &lt;p&gt;Like a lot of folks, we&amp;rsquo;ve found that Docker is a handy way handy way to avoid having long complex build environment setup instructions. Instead, we define a docker container and assume that the build always runs there.&lt;/p&gt;
@@ -486,10 +486,10 @@ docker build -t crewjam/HELPER-3 ./docker/HELPER-1
     
     <item>
       <title>withebs</title>
-      <link>/withebs/</link>
+      <link>https://crewjam.com/withebs/</link>
       <pubDate>Fri, 03 Jul 2015 00:00:00 +0000</pubDate>
       
-      <guid>/withebs/</guid>
+      <guid>https://crewjam.com/withebs/</guid>
       <description>&lt;p&gt;Withebs runs a command with the specified EBS volume attached to the currently running EC2 instance.&lt;/p&gt;
 
 &lt;!-- break --&gt;
@@ -565,10 +565,10 @@ ExecStop=/usr/bin/docker stop foo
     
     <item>
       <title>IP_PKTINFO and removing network devices (Updated)</title>
-      <link>/ip_pktinfo-and-removing-network-devices-updated/</link>
+      <link>https://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/</link>
       <pubDate>Wed, 08 Apr 2015 00:00:00 +0000</pubDate>
       
-      <guid>/ip_pktinfo-and-removing-network-devices-updated/</guid>
+      <guid>https://crewjam.com/ip_pktinfo-and-removing-network-devices-updated/</guid>
       <description>
 
 &lt;p&gt;If you use the IP_PKTINFO flag on your UDP listener, everything breaks when network devices change&lt;/p&gt;
@@ -735,10 +735,10 @@ of a process as well.&lt;/p&gt;
     
     <item>
       <title>Using Google Apps to log in to AWS</title>
-      <link>/using-google-apps-to-log-in-to-aws/</link>
+      <link>https://crewjam.com/using-google-apps-to-log-in-to-aws/</link>
       <pubDate>Sun, 29 Mar 2015 00:00:00 +0000</pubDate>
       
-      <guid>/using-google-apps-to-log-in-to-aws/</guid>
+      <guid>https://crewjam.com/using-google-apps-to-log-in-to-aws/</guid>
       <description>
 
 &lt;p&gt;In which we point that maintaining user accounts sucks, avoiding it is hard, and share &lt;a href=&#34;https://github.com/crewjam/awsconsoleauth&#34;&gt;a tool to make it a tiny bit easier&lt;/a&gt; (I hope).&lt;/p&gt;
@@ -813,7 +813,7 @@ them directly for use with the AWS API.&lt;/li&gt;
 &lt;/ul&gt;&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/DSC_1379.JPG&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/DSC_1379.JPG&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;A request for &lt;code&gt;https://aws.example.com/&lt;/code&gt; eventually redirects to the root of the console. A request for &lt;code&gt;https://aws.example.com/?uri=/ec2/v2/home?region=us-east-1%23Instances:sort=desc:launchTime&lt;/code&gt; redirects to the EC2 console view.&lt;/p&gt;
 
@@ -837,7 +837,7 @@ export AWS_SESSION_TOKEN=&amp;quot;AQoD...i6gF&amp;quot;
 
 &lt;p&gt;The various credentials and secrets we need to make this work get a little hairy. We have:&lt;/p&gt;
 
-&lt;p&gt;&lt;img style=&#34;float: left; width: 200px; left:50px&#34; src=&#34;/images/Let_me_tell_you_a_secret.jpg&#34; title=&#34;cc ed yurdon https://www.flickr.com/photos/72098626@N00/3741906651&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img style=&#34;float: left; width: 200px; left:50px&#34; src=&#34;https://crewjam.com/images/Let_me_tell_you_a_secret.jpg&#34; title=&#34;cc ed yurdon https://www.flickr.com/photos/72098626@N00/3741906651&#34;&gt;&lt;/p&gt;
 
 &lt;ol&gt;
 &lt;li&gt;A Google OAuth client id and secret. This is used by the web application to authorize users.&lt;/li&gt;
@@ -895,7 +895,7 @@ export AWS_SESSION_TOKEN=&amp;quot;AQoD...i6gF&amp;quot;
 
 &lt;p&gt;Here is what happened when I logged in as a federated user to check that I couldn&amp;rsquo;t inspect the stack:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/cfn_access_denied_1.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/cfn_access_denied_1.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;h1 id=&#34;aside-some-things-that-didn-t-work:8a7ba8ae56303c95773702d9563bac96&#34;&gt;Aside: some things that didn&amp;rsquo;t work&lt;/h1&gt;
 
@@ -959,10 +959,10 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
     
     <item>
       <title>Whats in a (Windows) name?</title>
-      <link>/whats-in-a-windows-name/</link>
+      <link>https://crewjam.com/whats-in-a-windows-name/</link>
       <pubDate>Fri, 06 Mar 2015 08:45:22 -0700</pubDate>
       
-      <guid>/whats-in-a-windows-name/</guid>
+      <guid>https://crewjam.com/whats-in-a-windows-name/</guid>
       <description>
 
 &lt;p&gt;In which we introduce a forensically sound encoding scheme for Windows names.&lt;/p&gt;
@@ -971,11 +971,11 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;Anyone who has done work on Windows has probably heard that file names are &amp;ldquo;unicode.&amp;rdquo; But what does that mean exactly? For starters it means that you can name files things like &lt;code&gt;你好世界.txt&lt;/code&gt; and &lt;code&gt;Здравствулте мир.txt&lt;/code&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/unicode-names-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/unicode-names-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;This works because virtually every name in Windows is represented as a sequence of 16-bit characters which are encoded as UTF-16 (or maybe UCS-2 depending on the version of Windows and who you ask). So a filename is allowed to contain &lt;em&gt;any&lt;/em&gt; 16-bit value? Not quite&amp;hellip;&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/unicode-names2-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/unicode-names2-shot.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;What is really going on here? Let&amp;rsquo;s write a little test program to find out.&lt;/p&gt;
 
@@ -1006,7 +1006,7 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;If you try to create a file with an invalid name Windows returns &lt;code&gt;ERROR_INVALID_NAME&lt;/code&gt;.  So far so good. Lets see what happens if we monitor our test program with &lt;a href=&#34;https://technet.microsoft.com/en-us/library/bb896645.aspx&#34;&gt;procmon&lt;/a&gt;? Naturally, it records our attempt to open a file with an invalid path and the resulting error.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/procmon.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Even though it is invalid, procmon is telling us the path we &lt;em&gt;attempted&lt;/em&gt; to open. Lets try creating a file named 你好世界.&lt;/p&gt;
 
@@ -1015,7 +1015,7 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 &lt;/pre&gt;&lt;/div&gt;
 
 
-&lt;p&gt;&lt;img src=&#34;/images/procmon3.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon3.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;This time the path is valid, and procmon draws the path correctly in the user interface.  Everything as expected so far.&lt;/p&gt;
 
@@ -1033,7 +1033,7 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;What does procmon say?&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/procmon2.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon2.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Oops! Procmon didn&amp;rsquo;t render the newline at all.&lt;/p&gt;
 
@@ -1053,11 +1053,11 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;So Windows  doesn&amp;rsquo;t validate the the argument passed to CreateFile() is a valid UTF-16 string. What does procmon do with this?&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/procmon4.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon4.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Although procmon makes an attempt to describe the filename, I had a hard time making sense of what was actually happening. I copied and pasted the path into an editor and switched to a hex view and the path seems hopelessly mangled.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;/images/procmon5.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon5.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;(I suppose that this could have happened any number of places, in Procmon, in the copy &amp;amp; paste buffer, or in UltraEdit. The point is I have no idea which path the process was trying to open and have no real way to figure it out. Sadness.)&lt;/p&gt;
 
@@ -1150,10 +1150,10 @@ def QuotedWideDecode(input_):
     
     <item>
       <title>Ephemeral Encryption in AWS</title>
-      <link>/aws-ephemeral-crypto/</link>
+      <link>https://crewjam.com/aws-ephemeral-crypto/</link>
       <pubDate>Fri, 06 Mar 2015 00:00:00 +0000</pubDate>
       
-      <guid>/aws-ephemeral-crypto/</guid>
+      <guid>https://crewjam.com/aws-ephemeral-crypto/</guid>
       <description>
 
 &lt;p&gt;How we use volume encryption in our AWS ephemeral disks&lt;/p&gt;
