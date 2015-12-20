@@ -1343,7 +1343,7 @@ subprocess.check_call([&amp;quot;mkfs&amp;quot;, &amp;quot;-t&amp;quot;, &amp;qu
 
 &lt;p&gt;Insider threat exists in all networks. The important question to consider is not &amp;ldquo;am I vulnerable to an insider?&amp;rdquo; &amp;ndash; that answer always &amp;ldquo;yes.&amp;rdquo; A better question is &amp;ldquo;am I &lt;em&gt;more&lt;/em&gt; vulnerable to insider threat in AWS than in my datacenter?&amp;rdquo; The answer to that is a little more interesting&amp;hellip;&lt;/p&gt;
 
-&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;http://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/RFControlPanel2.jpg/299px-RFControlPanel2.jpg&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;https://crewjam.com/images/299px-RFControlPanel2.jpg&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;If you are using AWS for data processing, the CPUs will need access to unencrypted data (setting aside boring use cases like blind storage, or fancy impractical things like &lt;a href=&#34;http://www.wired.com/2014/11/hacker-lexicon-homomorphic-encryption/&#34;&gt;homomorphic encryption&lt;/a&gt;). So however you organize it, the key or key-equivalent to decrypt your data must be accessible to the CPUs doing the work.&lt;/p&gt;
 
@@ -1359,7 +1359,7 @@ subprocess.check_call([&amp;quot;mkfs&amp;quot;, &amp;quot;-t&amp;quot;, &amp;qu
 
 &lt;h1 id=&#34;a-careless-insider-at-aws:c7cf2966c68b514e09a6e184d4bf033a&#34;&gt;A careless insider at AWS&lt;/h1&gt;
 
-&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;http://cdn.thewire.com/img/upload/2012/10/17/rendered/88b5821e80b3b19f9813bd0c5d9919d9_623x412.jpg&#34; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img style=&#34;float: right; width: 400px; padding-left: 20px;&#34; src=&#34;https://crewjam.com/images/88b5821e80b3b19f9813bd0c5d9919d9_623x412.jpg&#34; /&gt;&lt;/p&gt;
 
 &lt;p&gt;What about the risk of carelessness by AWS? They say disks don&amp;rsquo;t leave their datacenters, but what if that is more aspirational than descriptive? &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:c7cf2966c68b514e09a6e184d4bf033a:caveat&#34;&gt;4&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
