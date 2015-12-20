@@ -175,7 +175,7 @@ _ephdisk:
 
 &lt;p&gt;The only dependencies we have on the host system are &lt;em&gt;make&lt;/em&gt; and &lt;em&gt;docker&lt;/em&gt;. The build instructions are &amp;ldquo;run &lt;code&gt;make&lt;/code&gt;&amp;rdquo;. Easy peasy.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&#34;http://stream1.gifsoup.com/view4/1896021/sasuke-s-easy-button-o.gif&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/sasuke-s-easy-button-o.gif&#34;&gt;&lt;/p&gt;
 
 &lt;h1 id=&#34;a-more-complex-example:6bd33cf323dda1884b768b3a161fc0ec&#34;&gt;A more complex example&lt;/h1&gt;
 
