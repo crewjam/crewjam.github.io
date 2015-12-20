@@ -7,8 +7,131 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
     <copyright>© 2015 Ross Kinder.</copyright>
-    <lastBuildDate>Thu, 27 Aug 2015 15:25:20 -0700</lastBuildDate>
+    <lastBuildDate>Thu, 27 Aug 2015 16:06:56 -0700</lastBuildDate>
     <atom:link href="https://crewjam.com/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Gerrit Code Review</title>
+      <link>https://crewjam.com/gerrit-code-review/</link>
+      <pubDate>Thu, 27 Aug 2015 16:06:56 -0700</pubDate>
+      
+      <guid>https://crewjam.com/gerrit-code-review/</guid>
+      <description>
+
+&lt;p&gt;At work, we&amp;rsquo;ve been long-time users of Gerrit for code review. We recently started a new project with a new team and had an opportunity to reevaluate that choice against other workflows, particularly Github Pull Requests.&lt;/p&gt;
+
+&lt;h2 id=&#34;collectivist-approach:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;Collectivist Approach&lt;/h2&gt;
+
+&lt;p&gt;I&amp;rsquo;m a strong believer in a collective approach to team decision making (you could call it the anarchist (with a capital &amp;ldquo;A&amp;rdquo;), but that freaks people out). Particularly around tooling, leaders should not be perscriptive. We should, together, pick the tools that work for us. I &lt;em&gt;prima facie&lt;/em&gt; reject being told what tools our team will use, and avoid demanding teams use particular tools whenever possible. (This applies equally to security teams as well as development teams, although I&amp;rsquo;m talking about development teams here.)&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/hippies.jpg&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Part of the collective approach is that code review should be done one a peer-to-peer basis, rather than by a chief programmer. A code review process which everyone buys into will be mutally supportive and has been show to be effective at stopping bugs early. A top-down code review process tends towards the demoralizing and the oppressive.&lt;/p&gt;
+
+&lt;p&gt;It is in this context that we set out to decide how we were going to work on this new project.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-we-want:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;What we want&lt;/h2&gt;
+
+&lt;p&gt;In the course of the discussion about code review, we have come to realize that we want:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Code review to happen before code is merged (pre-commit).&lt;/li&gt;
+&lt;li&gt;Support for revising changes.&lt;/li&gt;
+&lt;li&gt;Workflow support that makes review efficient.&lt;/li&gt;
+&lt;li&gt;A clean commit history.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_workflow.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;vs-printout-review:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;vs. Printout Review&lt;/h2&gt;
+
+&lt;p&gt;We could have built a process around &lt;em&gt;printout review&lt;/em&gt; (my term) where we get together and look at the code as a whole every once in a while. There are some people advocating for this and some tools that support it (you can do it with GitHub comments, for example).&lt;/p&gt;
+
+&lt;p&gt;We reject this approach because it is &lt;a href=&#34;http://smartbear.com/SmartBear/media/pdfs/11_Best_Practices_for_Peer_Code_Review.pdf&#34;&gt;too time consuming and not suficiently effective&lt;/a&gt; at finding bugs.&lt;/p&gt;
+
+&lt;p&gt;Before a commit has landed you still have plenty of time to discuss coding choices, make small suggestions, and so on. With printout review, there is inertia preventing even small changes.&lt;/p&gt;
+
+&lt;p&gt;And small changes matter. Getting names consistent &amp;amp; descriptive allows a large codebase to be immediately understood. Getting spelling and whitespace correct makes the codebase grepable and inspires confidence.&lt;/p&gt;
+
+&lt;h2 id=&#34;vs-pull-requests:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;vs. Pull Requests&lt;/h2&gt;
+
+&lt;p&gt;Revising a change before it lands is an important part of our process. The general workflow of a change is something like this:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;You write some code.&lt;/li&gt;
+&lt;li&gt;You ask for a review.&lt;/li&gt;
+&lt;li&gt;The reviewer makes some comments&lt;/li&gt;
+&lt;li&gt;You make some changes.&lt;/li&gt;
+&lt;li&gt;You ask for a second review.&lt;/li&gt;
+&lt;li&gt;The reviewer gives a thumbs up.&lt;/li&gt;
+&lt;li&gt;The code is merged.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;The Github Pull Request workflow seems to be based on the idea that steps 4 and 5 are rare. It assumes that changes will not routinely be modified after their initial review.&lt;/p&gt;
+
+&lt;p&gt;We found that we were revising commits &lt;strong&gt;constantly&lt;/strong&gt;. So with pull requests we&amp;rsquo;d have a feature branch like:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;REVXXXX1 frob: adjust the grob to be more grobular
+REVXXXX2 fix review comments
+REVXXXX3 fix typos
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And each of those revisions would have a few comments here and there.&lt;/p&gt;
+
+&lt;p&gt;Of course we don&amp;rsquo;t want &lt;code&gt;REVXXXX2&lt;/code&gt; and &lt;code&gt;REVXXXX3&lt;/code&gt; in the commit history, so we&amp;rsquo;d squish the commits into one before we merged them. And when we squish the history &lt;em&gt;poof!&lt;/em&gt; our comments are gone.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_github.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;In the screenshot above we see a change made using the pull request flow. There are three commits: an initial change (not shown) and two revisions in response to comments (yellow box). The final commit (red box) is a squished commit combining the three previous. Inline comments from the intermediate changes are lost.&lt;/p&gt;
+
+&lt;p&gt;We discovered that we need first-class support for revising changes. With pull requests revisions are clumsy at best.&lt;/p&gt;
+
+&lt;h2 id=&#34;gerrit:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;Gerrit&lt;/h2&gt;
+
+&lt;p&gt;Next we tried Gerrit. Revising a change very easy and natural. In Gerrit each change has a number of revisions and the revision of changes is a first-class concept.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_gerrit.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We have found the using Gerrit promotes a lot of nice things:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;We get reasonable commit history.&lt;/li&gt;
+&lt;li&gt;Our code is easy to read because continuity errors get fixed. (i.e. &amp;ldquo;You called it a &lt;code&gt;FrobServer&lt;/code&gt; over there but here it is &lt;code&gt;frob_handler&lt;/code&gt;&amp;rdquo;)&lt;/li&gt;
+&lt;li&gt;Our master branch is &lt;del&gt;always&lt;/del&gt; usually working.&lt;/li&gt;
+&lt;li&gt;Reviews happen quickly because people know what to review.&lt;/li&gt;
+&lt;li&gt;The tools are easy (once you get used to &amp;lsquo;em).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;review-workflow:0b6ff0d9ba793c0b3d72c6f18fa96d4a&#34;&gt;Review Workflow&lt;/h2&gt;
+
+&lt;p&gt;Code review works much better when reviews can happen quickly. We were getting slowed down by spending a lot of time tracking the state of various reviews. &amp;ldquo;Are you ready for be to review 174 yet?&amp;rdquo;&lt;/p&gt;
+
+&lt;p&gt;We discovered that our changes were in one of just a few states:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Not Ready&lt;/strong&gt; - changes that were pushed for backup or other non-review reasons.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Work In Progress&lt;/strong&gt; - a partially commited change where the author wanted early feedback&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Ready for Review&lt;/strong&gt; - complete work that needs review.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Needs Revision&lt;/strong&gt; - reviewed work that needs changed before it is merged.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Ready to Merge&lt;/strong&gt; - work that is reviewed and ready to go.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;When we tried GitHub, we used labels like &lt;code&gt;needs-review&lt;/code&gt; and &lt;code&gt;needs-refactor&lt;/code&gt; to indicate the state of a PR. This was natural, although we found reviewers were forgetting to set &lt;code&gt;needs-refactor&lt;/code&gt; after doing a review. This was slightly forced, but certainly workable.&lt;/p&gt;
+
+&lt;p&gt;With Gerrit the labels scheme fits this approach very naturally. As is typical for Gerrit, we use the built-in &lt;code&gt;Code-Review&lt;/code&gt; label set to &lt;em&gt;+2&lt;/em&gt; for ready to merge. We created a custom label &lt;code&gt;Ready&lt;/code&gt; with the following meaning:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;-1&lt;/em&gt; - broken, please ignore&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;0&lt;/em&gt; - not ready for review&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;+1&lt;/em&gt; - work in progress, feedback requested&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;+2&lt;/em&gt; - ready for final review&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;From the Gerrit reviwers and authors can easily understand what work is waiting for them:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/gerrit_dashboard.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>zsh Configuration &amp; Notes</title>

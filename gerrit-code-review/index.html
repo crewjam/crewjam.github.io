@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Gerrit Code Review &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="https://crewjam.com/gerrit-code-review/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2015-08-27T16:06:56-07:00" />
+    
+    
+
+    <title> Gerrit Code Review &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="https://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="https://crewjam.comindex.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="https://crewjam.com/gerrit-code-review/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/css/lightbox.min.css">
+    <link rel="stylesheet" href="https://crewjam.com/css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(https://crewjam.com/images/Landscape_01.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Gerrit Code Review</h1>
+      <h2>How and why we use Gerrit</h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>At work, we&rsquo;ve been long-time users of Gerrit for code review. We recently started a new project with a new team and had an opportunity to reevaluate that choice against other workflows, particularly Github Pull Requests.</p>
+
+<h2 id="collectivist-approach:0b6ff0d9ba793c0b3d72c6f18fa96d4a">Collectivist Approach</h2>
+
+<p>I&rsquo;m a strong believer in a collective approach to team decision making (you could call it the anarchist (with a capital &ldquo;A&rdquo;), but that freaks people out). Particularly around tooling, leaders should not be perscriptive. We should, together, pick the tools that work for us. I <em>prima facie</em> reject being told what tools our team will use, and avoid demanding teams use particular tools whenever possible. (This applies equally to security teams as well as development teams, although I&rsquo;m talking about development teams here.)</p>
+
+<p><img src="/images/hippies.jpg" alt="" /></p>
+
+<p>Part of the collective approach is that code review should be done one a peer-to-peer basis, rather than by a chief programmer. A code review process which everyone buys into will be mutally supportive and has been show to be effective at stopping bugs early. A top-down code review process tends towards the demoralizing and the oppressive.</p>
+
+<p>It is in this context that we set out to decide how we were going to work on this new project.</p>
+
+<h2 id="what-we-want:0b6ff0d9ba793c0b3d72c6f18fa96d4a">What we want</h2>
+
+<p>In the course of the discussion about code review, we have come to realize that we want:</p>
+
+<ul>
+<li>Code review to happen before code is merged (pre-commit).</li>
+<li>Support for revising changes.</li>
+<li>Workflow support that makes review efficient.</li>
+<li>A clean commit history.</li>
+</ul>
+
+<p><img src="/images/gerrit_workflow.png" alt="" /></p>
+
+<h2 id="vs-printout-review:0b6ff0d9ba793c0b3d72c6f18fa96d4a">vs. Printout Review</h2>
+
+<p>We could have built a process around <em>printout review</em> (my term) where we get together and look at the code as a whole every once in a while. There are some people advocating for this and some tools that support it (you can do it with GitHub comments, for example).</p>
+
+<p>We reject this approach because it is <a href="http://smartbear.com/SmartBear/media/pdfs/11_Best_Practices_for_Peer_Code_Review.pdf">too time consuming and not suficiently effective</a> at finding bugs.</p>
+
+<p>Before a commit has landed you still have plenty of time to discuss coding choices, make small suggestions, and so on. With printout review, there is inertia preventing even small changes.</p>
+
+<p>And small changes matter. Getting names consistent &amp; descriptive allows a large codebase to be immediately understood. Getting spelling and whitespace correct makes the codebase grepable and inspires confidence.</p>
+
+<h2 id="vs-pull-requests:0b6ff0d9ba793c0b3d72c6f18fa96d4a">vs. Pull Requests</h2>
+
+<p>Revising a change before it lands is an important part of our process. The general workflow of a change is something like this:</p>
+
+<ol>
+<li>You write some code.</li>
+<li>You ask for a review.</li>
+<li>The reviewer makes some comments</li>
+<li>You make some changes.</li>
+<li>You ask for a second review.</li>
+<li>The reviewer gives a thumbs up.</li>
+<li>The code is merged.</li>
+</ol>
+
+<p>The Github Pull Request workflow seems to be based on the idea that steps 4 and 5 are rare. It assumes that changes will not routinely be modified after their initial review.</p>
+
+<p>We found that we were revising commits <strong>constantly</strong>. So with pull requests we&rsquo;d have a feature branch like:</p>
+
+<pre><code>REVXXXX1 frob: adjust the grob to be more grobular
+REVXXXX2 fix review comments
+REVXXXX3 fix typos
+</code></pre>
+
+<p>And each of those revisions would have a few comments here and there.</p>
+
+<p>Of course we don&rsquo;t want <code>REVXXXX2</code> and <code>REVXXXX3</code> in the commit history, so we&rsquo;d squish the commits into one before we merged them. And when we squish the history <em>poof!</em> our comments are gone.</p>
+
+<p><img src="/images/gerrit_github.png" alt="" /></p>
+
+<p>In the screenshot above we see a change made using the pull request flow. There are three commits: an initial change (not shown) and two revisions in response to comments (yellow box). The final commit (red box) is a squished commit combining the three previous. Inline comments from the intermediate changes are lost.</p>
+
+<p>We discovered that we need first-class support for revising changes. With pull requests revisions are clumsy at best.</p>
+
+<h2 id="gerrit:0b6ff0d9ba793c0b3d72c6f18fa96d4a">Gerrit</h2>
+
+<p>Next we tried Gerrit. Revising a change very easy and natural. In Gerrit each change has a number of revisions and the revision of changes is a first-class concept.</p>
+
+<p><img src="/images/gerrit_gerrit.png" alt="" /></p>
+
+<p>We have found the using Gerrit promotes a lot of nice things:</p>
+
+<ul>
+<li>We get reasonable commit history.</li>
+<li>Our code is easy to read because continuity errors get fixed. (i.e. &ldquo;You called it a <code>FrobServer</code> over there but here it is <code>frob_handler</code>&rdquo;)</li>
+<li>Our master branch is <del>always</del> usually working.</li>
+<li>Reviews happen quickly because people know what to review.</li>
+<li>The tools are easy (once you get used to &lsquo;em).</li>
+</ul>
+
+<h2 id="review-workflow:0b6ff0d9ba793c0b3d72c6f18fa96d4a">Review Workflow</h2>
+
+<p>Code review works much better when reviews can happen quickly. We were getting slowed down by spending a lot of time tracking the state of various reviews. &ldquo;Are you ready for be to review 174 yet?&rdquo;</p>
+
+<p>We discovered that our changes were in one of just a few states:</p>
+
+<ul>
+<li><strong>Not Ready</strong> - changes that were pushed for backup or other non-review reasons.</li>
+<li><strong>Work In Progress</strong> - a partially commited change where the author wanted early feedback</li>
+<li><strong>Ready for Review</strong> - complete work that needs review.</li>
+<li><strong>Needs Revision</strong> - reviewed work that needs changed before it is merged.</li>
+<li><strong>Ready to Merge</strong> - work that is reviewed and ready to go.</li>
+</ul>
+
+<p>When we tried GitHub, we used labels like <code>needs-review</code> and <code>needs-refactor</code> to indicate the state of a PR. This was natural, although we found reviewers were forgetting to set <code>needs-refactor</code> after doing a review. This was slightly forced, but certainly workable.</p>
+
+<p>With Gerrit the labels scheme fits this approach very naturally. As is typical for Gerrit, we use the built-in <code>Code-Review</code> label set to <em>+2</em> for ready to merge. We created a custom label <code>Ready</code> with the following meaning:</p>
+
+<ul>
+<li><em>-1</em> - broken, please ignore</li>
+<li><em>0</em> - not ready for review</li>
+<li><em>+1</em> - work in progress, feedback requested</li>
+<li><em>+2</em> - ready for final review</li>
+</ul>
+
+<p>From the Gerrit reviwers and authors can easily understand what work is waiting for them:</p>
+
+<p><img src="/images/gerrit_dashboard.png" alt="" /></p>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2015-08-27T16:06:56-07:00">
+      Aug 27, 2015
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Gerrit%20Code%20Review&amp;url=https%3a%2f%2fcrewjam.com%2fgerrit-code-review%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=https%3a%2f%2fcrewjam.com%2fgerrit-code-review%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=https%3a%2f%2fcrewjam.com%2fgerrit-code-review%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/js/lightbox.min.js"></script>
+</body>
+</html>
+
