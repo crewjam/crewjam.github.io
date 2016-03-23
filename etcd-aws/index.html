@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" Building a Robust etcd cluster in AWS &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="https://crewjam.com/etcd-aws/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2016-03-18T09:38:19-04:00" />
+    
+    
+
+    <title> Building a Robust etcd cluster in AWS &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="https://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="https://crewjam.comindex.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="https://crewjam.com/etcd-aws/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/css/lightbox.min.css">
+    <link rel="stylesheet" href="https://crewjam.com/css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(https://crewjam.com/images/2011_Library_of_Congress_USA_5466788868_card_catalog.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post post">
+    <header>
+      <h1 class="page-title">Building a Robust etcd cluster in AWS</h1>
+      <h2></h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>Consensus based directories are the core of many distributed systems. People use tools like <a href="https://zookeeper.apache.org/">zookeeper</a>, <a href="https://coreos.com/etcd/docs/latest/">etcd</a> and <a href="https://www.consul.io/">consul</a> to manage distributed state, elect leaders, and discover services. Building a robust cluster of these services in a <a href="http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html">chaotic environment</a> was trickier than I thought, so I&rsquo;m documenting what I figured out here.</p>
+
+<p>The source for all this is <a href="https://github.com/crewjam/etcd-aws">available on github</a>.</p>
+
+<h2 id="goals:e7a6f8a70e295412e40afbdbc7546fcb">Goals</h2>
+
+<ol>
+<li>Use cloudformation to establish a three node autoscaling group of etcd instances.</li>
+<li>In case of the failure of a single node, we want the cluster to remain available and the replacement node to integrate into the cluster.</li>
+<li><strong>Cycling</strong>. If each node in the cluster is replaced by a new node, one at a time, the cluster should remain available.</li>
+<li>We want to configure cloudformation such that updates to the launch configuration effect the rolling update described in #3.</li>
+<li>In the event of failure of all nodes simultaneously, the cluster recovers, albiet with interruption in service. The state is restored from a previous backup.</li>
+</ol>
+
+<h2 id="cloudformation:e7a6f8a70e295412e40afbdbc7546fcb">Cloudformation</h2>
+
+<p>We&rsquo;re using <a href="https://godoc.org/github.com/crewjam/go-cloudformation">go-cloudformation</a> to produce our cloudformation templates. The template consists of:</p>
+
+<ul>
+<li>A VPC containing three subnets across three availability zones.</li>
+<li>An autoscaling group of CoreOS instances running etcd with an initial size of 3.</li>
+<li>An internal load balancer that routes etcd client requests to the autoscaling group.</li>
+<li>A lifecycle hook that monitors the autoscaling group and sends termination events to an SQS queue.</li>
+<li>An S3 bucket that stores the backup</li>
+<li>CloudWatch alarms that monitor the health of the cluster and that the backup is happening.</li>
+</ul>
+
+<p><img src="/images/aws-etcd-diagram.jpg" alt="" /></p>
+
+<h2 id="wrapping-etcd:e7a6f8a70e295412e40afbdbc7546fcb">Wrapping etcd</h2>
+
+<p>To implement the various features that we need on top of etcd we&rsquo;ll write a program that <code>etcd-aws</code> that discovers the correct configuration and invokes <code>etcd</code>. It will also handle the backups and cluster state monitoring that I&rsquo;ll describe later.</p>
+
+<p>Because we&rsquo;re using CoreOS we&rsquo;ll need to replace the systemd unit file that replaces <code>etcd</code> with a wrapper. <a href="https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files">Quoting</a>:</p>
+
+<blockquote>
+<p>If you wish to modify the way that a unit functions, the best location to do so is within the <code>/etc/systemd/system</code> directory. Unit files found in this directory location take precedence over any of the other locations on the filesystem. If you need to modify the system&rsquo;s copy of a unit file, putting a replacement in this directory is the safest and most flexible way to do this.</p>
+</blockquote>
+
+<p>So we replace the built-in <code>etcd2.service</code> with our own in <code>/etc/systemd/system/etcd2.service</code>:</p>
+
+<pre><code class="language-systemd">[Unit]
+Description=etcd2
+Conflicts=etcd.service
+
+[Service]
+Restart=always
+EnvironmentFile=/etc/etcd_aws.env
+ExecStart=/usr/bin/docker run --name etcd-aws \
+  -p 2379:2379 -p 2380:2380 \
+  -v /var/lib/etcd2:/var/lib/etcd2 \
+  -e ETCD_BACKUP_BUCKET -e ETCD_BACKUP_KEY \
+  --rm crewjam/etcd-aws
+ExecStop=-/usr/bin/docker rm -f etcd-aws
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+
+<p>The full source of <code>etcd-aws</code> is in <a href="https://github.com/crewjam/etcd-aws/">the github repo</a>.</p>
+
+<h2 id="the-bootstrap-problem:e7a6f8a70e295412e40afbdbc7546fcb">The Bootstrap Problem</h2>
+
+<p>Etcd provides three ways of bootstrapping, via the <a href="https://coreos.com/etcd/docs/latest/clustering.html#etcd-discovery">discovery service</a> they operate, via <a href="https://coreos.com/etcd/docs/latest/clustering.html#dns-discovery">DNS SRV records</a>, and via <a href="https://coreos.com/etcd/docs/latest/clustering.html#static">static configuration</a>.</p>
+
+<h3 id="bootstrapping-via-the-discovery-service:e7a6f8a70e295412e40afbdbc7546fcb">Bootstrapping via the discovery service</h3>
+
+<p>To use the discovery service you register your cluster specifying the initial cluster size and get back a random cluster ID. You provide that cluster cluster ID to each node you create. Using discovery requires that we bake the registration step into the CloudFormation template. This is possible with custom resources and lambda, but in the end it is annoying.</p>
+
+<p>After the discovery service is aware of <em>n</em> nodes, subsequent nodes that check in are assumed to be <a href="https://coreos.com/etcd/docs/latest/proxy.html">&ldquo;proxies&rdquo;</a>, i.e. not full-fledged members of the cluster. This breaks cycling because any nodes launched after the first three will auto-discover as proxies, and as the initial nodes drop off, eventually all the nodes will be proxies and the cluster will break.</p>
+
+<p>But the most important issue is that we introduce a dependence on a third-party service. We could run our own discovery service, but that requires a robust etcd&ndash;which is what we are trying to achieve in the first place!</p>
+
+<h3 id="bootstrapping-via-dns-srv:e7a6f8a70e295412e40afbdbc7546fcb">Bootstrapping via DNS SRV</h3>
+
+<p>I didn&rsquo;t look too hard at using DNS SRV records because would introduce complexity that I&rsquo;m not super keen on having to manage.</p>
+
+<h3 id="bootstrapping-via-static:e7a6f8a70e295412e40afbdbc7546fcb">Bootstrapping via static</h3>
+
+<p>The only approach that remains is bootstraping via a static initial configuration. In this mode you specify some environment variables to etcd and it uses that to create the initial cluster. For example:</p>
+
+<pre><code class="language-bash">ETCD_NAME=i-cb94f313
+ETCD_INITIAL_CLUSTER=i-19e3b3de=http://10.0.121.237:2380,i-cb94f313=http://10.0.50.67:2380,i-c8ccfa12=http://10.0.133.146:2380
+ETCD_INITIAL_CLUSTER_STATE=new
+ETCD_INITIAL_CLUSTER_TOKEN=arn:aws:autoscaling:us-west-2:012345678901:autoScalingGroup:8aa26c96-903f-481d-a43c-64bed19e9a58:autoScalingGroupName/etcdtest-MasterAutoscale-D0LX5CJYWRWY
+</code></pre>
+
+<p>This looks easy and simple, but there are a bunch of non-obvious contraints.</p>
+
+<ul>
+<li>The value in <code>ETCD_NAME</code> must be present in <code>ETCD_INITIAL_CLUSTER</code>.</li>
+<li>etcd derives the cluster ID from <code>ETCD_INITIAL_CLUSTER</code> when <code>ETCD_INITIAL_CLUSTER_STATE</code> is <code>new</code>, by hashing it or something. This means that <code>ETCD_INITIAL_CLUSTER</code> must be <strong>identical</strong> on all the nodes where <code>new</code> is specified. Same order. Same names. Identical.</li>
+<li>You might think that the cluster ID could be derived from <code>ETCD_INITIAL_CLUSTER_TOKEN</code>, but it isn&rsquo;t. <code>ETCD_INITIAL_CLUSTER_TOKEN</code> is a safety feature to keep clusters from getting mixed up, but it is not used to seed the cluster ID.</li>
+<li>Nodes will not elect a leader until <em>n</em> / 2 + 1 of the nodes defined in <code>ETCD_INITIAL_CLUSTER</code> are present. It appears that you cannot join a cluster with <code>ETCD_INITIAL_CLUSTER_STATE=existing</code> until this has happend.</li>
+</ul>
+
+<h2 id="the-boostrap-solution:e7a6f8a70e295412e40afbdbc7546fcb">The Boostrap Solution</h2>
+
+<p>To make this work we need to get at least two nodes to invoke <code>etcd</code> with the exact same <code>ETCD_INITIAL_CLUSTER</code> and <code>ETCD_INITIAL_CLUSTER_STATE=new</code>. After that we only need to get <code>ETCD_INITIAL_CLUSTER</code> mostly correct and can use <code>ETCD_INITIAL_CLUSTER_STATE=existing</code></p>
+
+<p>When <code>etcd-aws</code> starts it determines the current members of the cluster using <a href="https://github.com/crewjam/etcd-aws/">ec2cluster</a> to guess based on introspecting the current instance&rsquo;s metadata and EC2 configuration. For our purposes, a cluster member is any instance in the same autoscaling group. Happily, <em>ec2cluster</em> sorts the cluster members by launch time, from oldest to youngest, so each node will see the same cluster order.</p>
+
+<p>Next we attempt to contact each node in the cluster to determine if the cluster currently has a leader. If any node can be contacted and reports a leader then we assume the cluster is in the <code>existing</code> state, otherwise we assume the cluster is <code>new</code>. (Remember: we have to have at least two nodes that join as <code>new</code> in order to bootstrap the cluster and elect our first leader.)</p>
+
+<p>We construct the <code>ETCD_INITIAL_CLUSTER</code> value using the EC2 instance ID for the node name and the node&rsquo;s private IP address.</p>
+
+<p>We&rsquo;re almost there, but not quite. I&rsquo;ve observed cases where new nodes fail to join with a message like this:</p>
+
+<pre><code>etcdmain: error validating peerURLs {ClusterID:500f903265bef4ea Members:[&amp;{ID:7452025f0b7cee3e RaftAttributes:{PeerURLs:[http://10.0.133.146:2380]} Attributes:{Name:i-c8ccfa12 ClientURLs:[http://10.0.133.146:2379]}}] RemovedMemberIDs:[]}: member count is unequal
+</code></pre>
+
+<p>This can be resolved by telling an existing node of the cluster about the new node just before it joins. We can do this by manually joining the node to the cluster by making a <code>POST</code> request to the <code>/v2/members</code> endpoint on one of the existing nodes.</p>
+
+<h2 id="the-cycling-problem:e7a6f8a70e295412e40afbdbc7546fcb">The Cycling Problem</h2>
+
+<p>So now we can launch a cluster from nothing &ndash; nifty. But because it&rsquo;s 2016 and all the cool kids are doing <a href="https://www.google.com/search?q=immutable%20infrastructure">immutable infrastructure</a> we have to as well. Here is where things get tricky.</p>
+
+<p>Etcd uses the <a href="https://speakerdeck.com/benbjohnson/raft-the-understandable-distributed-consensus-protocol">Raft consensus algorithm</a> to maintain consistency. These algorithms are designed such that a quorum of nodes is required to be in-sync to make a decision. If you have an <em>n</em>-node cluster, you&rsquo;ll need <em>n</em> / 2 + 1 nodes for a quorum.</p>
+
+<p>So what happens when we cycle nodes?</p>
+
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Total Nodes</th>
+<th>Alive Nodes</th>
+<th>Dead Nodes</th>
+<th>Quorum</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Initial</td>
+<td>3</td>
+<td>3</td>
+<td>0</td>
+<td>2</td>
+</tr>
+
+<tr>
+<td>After first replacement</td>
+<td>4</td>
+<td>3</td>
+<td>1</td>
+<td>3</td>
+</tr>
+
+<tr>
+<td>After second replacement</td>
+<td>5</td>
+<td>3</td>
+<td>2</td>
+<td>3</td>
+</tr>
+
+<tr>
+<td>After third replacement</td>
+<td>6</td>
+<td>3</td>
+<td>3</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+
+<ol>
+<li>In the initial state we have three nodes. Two are required for quorum.</li>
+<li>We create a node and destroy a node. Now the cluster thinks there are <em>n</em>=4 nodes, one of which is unreachable. Three are required for quorum.</li>
+<li>We create a node and destroy a node. Now <em>n</em>=5, with two nodes unreachable and three required for quorum.</li>
+<li>We create a node and destroy a node. Now <em>n</em>=6, with three nodes unreachable and four required for quorum.<br /></li>
+</ol>
+
+<p><strong>Boom</strong> cluster broken. At this point it is impossible for the cluster to elect a leader. The missing nodes will never rejoin, but the cluster doesn&rsquo;t know that, so they still count against the count required for quorum.</p>
+
+<p>Crap.</p>
+
+<p>The documentation describes how a cluster node can be gracefully shut down, removing it from the cluster. For robustness, we don&rsquo;t want to rely on, or even expect that we&rsquo;ll be able to shut a node down cleanly &ndash; remember <a href="http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html">it&rsquo;s chaotic out there</a>.</p>
+
+<h2 id="the-cycling-solution:e7a6f8a70e295412e40afbdbc7546fcb">The Cycling Solution</h2>
+
+<p>Whever an instance is terminated we want to tell the remaining nodes about it so that our terminated instance doesn&rsquo;t count against <em>n</em> for the purposes of determining if there is a quorum. We don&rsquo;t want to interfere too much with the failure detection built in to etcd, just give it a hint when autoscaling takes a node away.</p>
+
+<p><a href="http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/lifecycle-hooks.html">Auto Scaling lifecycle hooks</a> are just the ticket.</p>
+
+<p>We create a lifecycle hook that notifies us whenever an instance is terminated. Experimentally, this works no matter if autoscaling kills your instance or if you kill an instance manually.</p>
+
+<pre><code class="language-go">t.AddResource(&quot;MasterAutoscaleLifecycleHookQueue&quot;, cfn.SQSQueue{})
+t.AddResource(&quot;MasterAutoscaleLifecycleHookTerminating&quot;, cfn.AutoScalingLifecycleHook{
+    AutoScalingGroupName:  cfn.Ref(&quot;MasterAutoscale&quot;).String(),
+    NotificationTargetARN: cfn.GetAtt(&quot;MasterAutoscaleLifecycleHookQueue&quot;, &quot;Arn&quot;),
+    RoleARN:               cfn.GetAtt(&quot;MasterAutoscaleLifecycleHookRole&quot;, &quot;Arn&quot;),
+    LifecycleTransition:   cfn.String(&quot;autoscaling:EC2_INSTANCE_TERMINATING&quot;),
+    HeartbeatTimeout:      cfn.Integer(30),
+})
+</code></pre>
+
+<p>Next we create a service that will read from the queue and will tell etcd that the node is deleted whenever that happens.</p>
+
+<pre><code class="language-go">// handleLifecycleEvent is invoked whenever we get a lifecycle terminate message. It removes
+// terminated instances from the etcd cluster.
+func handleLifecycleEvent(m *ec2cluster.LifecycleMessage) (shouldContinue bool, err error) {
+    if m.LifecycleTransition != &quot;autoscaling:EC2_INSTANCE_TERMINATING&quot; {
+        return true, nil
+    }
+
+    // look for the instance in the cluster
+    resp, err := http.Get(fmt.Sprintf(&quot;%s/v2/members&quot;, etcdLocalURL))
+    if err != nil {
+        return false, err
+    }
+    members := etcdMembers{}
+    if err := json.NewDecoder(resp.Body).Decode(&amp;members); err != nil {
+        return false, err
+    }
+    memberID := &quot;&quot;
+    for _, member := range members.Members {
+        if member.Name == m.EC2InstanceID {
+            memberID = member.ID
+        }
+    }
+
+    req, _ := http.NewRequest(&quot;DELETE&quot;, fmt.Sprintf(&quot;%s/v2/members/%s&quot;, etcdLocalURL, memberID), nil)
+    _, err = http.DefaultClient.Do(req)
+    if err != nil {
+        return false, err
+    }
+
+    return false, nil
+}
+</code></pre>
+
+<p>This code runs whenever the <code>etcd-aws</code> wrapper is running.</p>
+
+<h2 id="rolling-updates:e7a6f8a70e295412e40afbdbc7546fcb">Rolling Updates</h2>
+
+<p>In AWS AutoScaling, Launch Configurations define how your instances get created. Normally when we make changes to an AutoScaling launch configuration in CloudFormation, it does not affect already running instances.</p>
+
+<p>To be buzzword compliant with &ldquo;immutable infrastructure&rdquo;, we have to tell CloudFormation to perform rolling updates across our cluster whenever we make a change to the launch configuration. To affect this, we add an <code>UpdatePolicy</code> and <code>CreationPolicy</code> to the template. We&rsquo;re telling CloudFormation to wait for a signal that each node is alive before proceeding to the next.</p>
+
+<pre><code class="language-go">t.Resources[&quot;MasterAutoscale&quot;] = &amp;cfn.Resource{
+    UpdatePolicy: &amp;cfn.UpdatePolicy{
+        AutoScalingRollingUpdate: &amp;cfn.UpdatePolicyAutoScalingRollingUpdate{
+            MinInstancesInService: cfn.Integer(3),
+            PauseTime:             cfn.String(&quot;PT15M&quot;),
+            WaitOnResourceSignals: cfn.Bool(true),
+        },
+    },
+    CreationPolicy: &amp;cfn.CreationPolicy{
+        ResourceSignal: &amp;cfn.CreationPolicyResourceSignal{
+            Count:   cfn.Integer(3),
+            Timeout: cfn.String(&quot;PT5M&quot;),
+        },
+    },
+    Properties: cfn.AutoScalingAutoScalingGroup{
+        DesiredCapacity:         cfn.String(&quot;3&quot;),
+        MaxSize:                 cfn.String(&quot;5&quot;),
+        MinSize:                 cfn.String(&quot;3&quot;),
+        // ...
+    },
+}
+</code></pre>
+
+<p>Now we need to send the signal that we are ready whenever systemd reports that etcd is running. For that we need another <code>oneshot</code> service:</p>
+
+<pre><code class="language-systemd">[Unit]
+Description=Cloudformation Signal Ready
+After=docker.service
+Requires=docker.service
+After=etcd2.service
+Requires=etcd2.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/environment
+ExecStart=/bin/bash -c '\
+eval $(docker run crewjam/ec2cluster); \
+docker run --rm crewjam/awscli cfn-signal \
+    --resource MasterAutoscale --stack $TAG_AWS_CLOUDFORMATION_STACK_ID \
+    --region $REGION; \
+'
+</code></pre>
+
+<p>With this configured we get the kind of rolling updates that we want. Here is an excerpt of the CloudFormation events when performing a rolling upgrade</p>
+
+<pre><code class="language-bash">Temporarily setting autoscaling group MinSize and DesiredCapacity to 4.
+Rolling update initiated. Terminating 3 obsolete instance(s) in batches of 1, while keeping at least 3 instance(s) in service. Waiting on resource signals with a timeout of PT15M when new instances are added to the autoscaling group.
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Received SUCCESS signal with UniqueId i-81c6a159
+Terminating instance(s) [i-48fa9d90]; replacing with 1 new instance(s).
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Successfully terminated instance(s) [i-48fa9d90] (Progress 33%).
+Received SUCCESS signal with UniqueId i-0dc4a3d5
+Terminating instance(s) [i-b2095a75]; replacing with 1 new instance(s).
+Successfully terminated instance(s) [i-b2095a75] (Progress 67%).
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Successfully terminated instance(s) [i-7aa294a0] (Progress 100%).
+Terminating instance(s) [i-7aa294a0]; replacing with 0 new instance(s).
+Received SUCCESS signal with UniqueId i-203360e7
+UPDATE_COMPLETE
+</code></pre>
+
+<h2 id="load-balancer-for-service-discovery:e7a6f8a70e295412e40afbdbc7546fcb">Load Balancer for Service Discovery</h2>
+
+<p>The CloudFormation template specifies an elastic load balancer for the etcd nodes. The purpose of this load balancer is to be suitable as a value of <code>ETCD_PEERS</code> for etcd clients. The etcd client negotiates the list of peers on initial contact, so the load balancer just serves as a way to avoid having to keep an up-to-date list of peers for consumers of the service. After the initial sync, consumers communicate directly with the servers, so we still need tcp/2379 open from the rest of the VPC.</p>
+
+<pre><code class="language-go">t.AddResource(&quot;MasterLoadBalancer&quot;, cfn.ElasticLoadBalancingLoadBalancer{
+    Scheme:  cfn.String(&quot;internal&quot;),
+    Subnets: cfn.StringList(parameters.VpcSubnets...),
+    Listeners: &amp;cfn.ElasticLoadBalancingListenerList{
+        cfn.ElasticLoadBalancingListener{
+            LoadBalancerPort: cfn.String(&quot;2379&quot;),
+            InstancePort:     cfn.String(&quot;2379&quot;),
+            Protocol:         cfn.String(&quot;HTTP&quot;),
+        },
+    },
+    HealthCheck: &amp;cfn.ElasticLoadBalancingHealthCheck{
+        Target:             cfn.String(&quot;HTTP:2379/health&quot;),
+        HealthyThreshold:   cfn.String(&quot;2&quot;),
+        UnhealthyThreshold: cfn.String(&quot;10&quot;),
+        Interval:           cfn.String(&quot;10&quot;),
+        Timeout:            cfn.String(&quot;5&quot;),
+    },
+    SecurityGroups: cfn.StringList(
+        cfn.Ref(&quot;MasterLoadBalancerSecurityGroup&quot;)),
+})
+</code></pre>
+
+<h2 id="backup:e7a6f8a70e295412e40afbdbc7546fcb">Backup</h2>
+
+<p>We need a persistent copy of the database in order to facilitate recovery in case all nodes fail.</p>
+
+<p>To do this, I initially tried invoking <code>etcdctl backup</code> which creates a
+consistent copy of the state, tarring up the results and storing them in S3.
+This approach didn&rsquo;t work for me. Both the actual objects being stored <strong>and</strong> information about the cluster state are captured in the backup. When restoring to a new cluster after complete node failure, the <em>raft</em> state was broken and nothing worked. Ugh.</p>
+
+<p>Instead it turned out to be pretty simple to capture each value directly using the etcd client, write them to a big JSON document and store <em>that</em> in S3.</p>
+
+<pre><code class="language-go">// dumpEtcdNode writes a JSON representation of the nodes to w
+func dumpEtcdNode(key string, etcdClient *etcd.Client, w io.Writer) {
+    response, _ := etcdClient.Get(key, false, false)
+    json.NewEncoder(w).Encode(response.Node)
+    for _, childNode := range childNodes {
+        if childNode.Dir {
+            dumpEtcdNode(childNode.Key, etcdClient, w)
+        } else {
+            json.NewEncoder(w).Encode(childNode)
+        }
+    }
+}
+</code></pre>
+
+<p>We want the backup to run on exactly one node very few minutes. We could hold a leader election using etcd itself, but it seemed easier to just run the backup on the current leader of the cluster.</p>
+
+<pre><code class="language-go">// if the cluster has a leader other than the current node, then skip backup.
+if nodeState.LeaderInfo.Leader != &quot;&quot; || nodeState.ID != nodeState.LeaderInfo.Leader {
+    log.Printf(&quot;%s: http://%s:2379/v2/stats/self: not the leader&quot;, *instance.InstanceId,
+        *instance.PrivateIpAddress)
+    continue
+}
+</code></pre>
+
+<h3 id="restoring:e7a6f8a70e295412e40afbdbc7546fcb">Restoring</h3>
+
+<p>We want the cluster to automatically recover from failure of all nodes. This should happen when:</p>
+
+<ol>
+<li>The cluster does not yet have a leader, i.e. <code>ETCD_INITIAL_CLUSTER_STATE</code> is <code>new</code>.</li>
+<li>The local node does not have any files in the data directory.</li>
+<li>The backup exists in S3.</li>
+</ol>
+
+<p>Note that there is a race condition here &ndash; For a three node cluster, it is possible that the restore process could take place on two nodes. Since they are restoring the same thing, this seems to me like it doesn&rsquo;t matter much.</p>
+
+<h2 id="health-checking:e7a6f8a70e295412e40afbdbc7546fcb">Health Checking</h2>
+
+<p>To monitor the health of the cluster, we create a CloudWatch alarm that checks the state of the Elastic Load Balancer:</p>
+
+<pre><code class="language-go">t.AddResource(&quot;MasterLoadBalancerHealthAlarm&quot;, cfn.CloudWatchAlarm{
+    ActionsEnabled:     cfn.Bool(true),
+    AlarmActions:       cfn.StringList(cfn.Ref(&quot;HealthTopic&quot;).String()),
+    OKActions:          cfn.StringList(cfn.Ref(&quot;HealthTopic&quot;).String()),
+    AlarmDescription:   cfn.String(&quot;master instance health&quot;),
+    AlarmName:          cfn.String(&quot;MasterInstanceHealth&quot;),
+    ComparisonOperator: cfn.String(&quot;LessThanThreshold&quot;),
+    EvaluationPeriods:  cfn.String(&quot;1&quot;),
+    Dimensions: &amp;cfn.CloudWatchMetricDimensionList{
+        cfn.CloudWatchMetricDimension{
+            Name:  cfn.String(&quot;LoadBalancerName&quot;),
+            Value: cfn.Ref(&quot;MasterLoadBalancer&quot;).String(),
+        },
+    },
+    MetricName: cfn.String(&quot;HealthyHostCount&quot;),
+    Namespace:  cfn.String(&quot;AWS/ELB&quot;),
+    Period:     cfn.String(&quot;60&quot;),
+    Statistic:  cfn.String(&quot;Minimum&quot;),
+    Unit:       cfn.String(&quot;Count&quot;),
+
+    // Note: for scale=3 we should have no fewer than 1 healthy instance
+    // *PER AVAILABILITY ZONE*. This is confusing, I know.
+    Threshold: cfn.String(&quot;1&quot;),
+}) 
+</code></pre>
+
+<p>The load balancer, in turn, determines the health of each instance by querying each etcd instance&rsquo;s self reported health url:</p>
+
+<pre><code class="language-go">HealthCheck: &amp;cfn.ElasticLoadBalancingHealthCheck{
+    Target:             cfn.String(&quot;HTTP:2379/health&quot;),
+    HealthyThreshold:   cfn.String(&quot;2&quot;),
+    UnhealthyThreshold: cfn.String(&quot;10&quot;),
+    Interval:           cfn.String(&quot;10&quot;),
+    Timeout:            cfn.String(&quot;5&quot;),
+}
+</code></pre>
+
+<h3 id="backup-health:e7a6f8a70e295412e40afbdbc7546fcb">Backup Health</h3>
+
+<p>We also want to make sure that the backup keeps running. We want to get alerted if the backup file gets old. To make this happen, we create a custom CloudWatch metric and emit it every time the backup completes:</p>
+
+<pre><code class="language-go">cloudwatch.New(s.AwsSession).PutMetricData(&amp;cloudwatch.PutMetricDataInput{
+    Namespace: aws.String(&quot;Local/etcd&quot;),
+    MetricData: []*cloudwatch.MetricDatum{
+        &amp;cloudwatch.MetricDatum{
+            MetricName: aws.String(&quot;BackupKeyCount&quot;),
+            Dimensions: []*cloudwatch.Dimension{
+                &amp;cloudwatch.Dimension{
+                    Name:  aws.String(&quot;AutoScalingGroupName&quot;),
+                    Value: aws.String(getInstanceTag(instance, &quot;aws:autoscaling:groupName&quot;)),
+                },
+            },
+            Unit:  aws.String(cloudwatch.StandardUnitCount),
+            Value: aws.Float64(float64(valueCount)),
+        },
+    },
+})
+</code></pre>
+
+<p>This metric tells us how many values are present in the backup. We care about that a little, but mostly we care that <code>PutMetricData</code> gets invoked every once in a while to provide these data. In other words, we care most about the <code>INSUFFICIENT_DATA</code> case.</p>
+
+<pre><code class="language-go">// this alarm is triggered (mostly) by the requirement that data be present.
+// if it isn't for 300 seconds, then the backups are failing and the check goes
+// into the INSUFFICIENT_DATA state and we are alerted.
+t.AddResource(&quot;MasterBackupHealthAlarm&quot;, cfn.CloudWatchAlarm{
+    ActionsEnabled:          cfn.Bool(true),
+    AlarmActions:            cfn.StringList(cfn.Ref(&quot;HealthTopic&quot;).String()),
+    InsufficientDataActions: cfn.StringList(cfn.Ref(&quot;HealthTopic&quot;).String()),
+    OKActions:               cfn.StringList(cfn.Ref(&quot;HealthTopic&quot;).String()),
+    AlarmDescription:        cfn.String(&quot;key backup count&quot;),
+    AlarmName:               cfn.String(&quot;MasterBackupKeyCount&quot;),
+    ComparisonOperator:      cfn.String(&quot;LessThanThreshold&quot;),
+    EvaluationPeriods:       cfn.String(&quot;1&quot;),
+    Dimensions: &amp;cfn.CloudWatchMetricDimensionList{
+        cfn.CloudWatchMetricDimension{
+            Name:  cfn.String(&quot;AutoScalingGroupName&quot;),
+            Value: cfn.Ref(&quot;MasterAutoscale&quot;).String(),
+        },
+    },
+    MetricName: cfn.String(&quot;BackupKeyCount&quot;),
+    Namespace:  cfn.String(&quot;Local/etcd&quot;),
+    Period:     cfn.String(&quot;300&quot;),
+    Statistic:  cfn.String(&quot;Minimum&quot;),
+    Unit:       cfn.String(&quot;Count&quot;),
+    Threshold:  cfn.String(&quot;1&quot;),
+})
+</code></pre>
+
+<h2 id="oh-em-gee:e7a6f8a70e295412e40afbdbc7546fcb">Oh em gee.</h2>
+
+<p>We now have a cloudformation template where we can:</p>
+
+<ul>
+<li>Generate a working <em>etcd</em> cluster from scratch.</li>
+<li>Terminate arbitrary instances and watch the cluster recover.</li>
+<li>Perform a rolling replacement of each node.</li>
+<li>Backup and automatic restore in S3 to handle failure of all nodes</li>
+<li>Health check for the service and the backup.</li>
+</ul>
+
+<p>Pfew! That was a <em>lot</em> more work that I thought it would be.</p>
+
+<p>I&rsquo;d be grateful for questions, comments, or suggestions &ndash; I&rsquo;m <a href="https://twitter.com/crewjam">@crewjam</a> on twitter.</p>
+
+<p>Image Credit: <a href="http://flickr.com/photos/22526649@N03/5466788868">tedeytan</a></p>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2016-03-18T09:38:19-04:00">
+      Mar 18, 2016
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=Building%20a%20Robust%20etcd%20cluster%20in%20AWS&amp;url=https%3a%2f%2fcrewjam.com%2fetcd-aws%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=https%3a%2f%2fcrewjam.com%2fetcd-aws%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=https%3a%2f%2fcrewjam.com%2fetcd-aws%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+    </footer>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/js/lightbox.min.js"></script>
+</body>
+</html>
+

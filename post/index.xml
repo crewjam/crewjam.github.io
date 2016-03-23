@@ -7,8 +7,506 @@
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
     <copyright>© 2015 Ross Kinder.</copyright>
-    <lastBuildDate>Thu, 27 Aug 2015 16:06:56 -0700</lastBuildDate>
+    <lastBuildDate>Fri, 18 Mar 2016 09:38:19 -0400</lastBuildDate>
     <atom:link href="https://crewjam.com/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Building a Robust etcd cluster in AWS</title>
+      <link>https://crewjam.com/etcd-aws/</link>
+      <pubDate>Fri, 18 Mar 2016 09:38:19 -0400</pubDate>
+      
+      <guid>https://crewjam.com/etcd-aws/</guid>
+      <description>
+
+&lt;p&gt;Consensus based directories are the core of many distributed systems. People use tools like &lt;a href=&#34;https://zookeeper.apache.org/&#34;&gt;zookeeper&lt;/a&gt;, &lt;a href=&#34;https://coreos.com/etcd/docs/latest/&#34;&gt;etcd&lt;/a&gt; and &lt;a href=&#34;https://www.consul.io/&#34;&gt;consul&lt;/a&gt; to manage distributed state, elect leaders, and discover services. Building a robust cluster of these services in a &lt;a href=&#34;http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html&#34;&gt;chaotic environment&lt;/a&gt; was trickier than I thought, so I&amp;rsquo;m documenting what I figured out here.&lt;/p&gt;
+
+&lt;p&gt;The source for all this is &lt;a href=&#34;https://github.com/crewjam/etcd-aws&#34;&gt;available on github&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;goals:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Goals&lt;/h2&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Use cloudformation to establish a three node autoscaling group of etcd instances.&lt;/li&gt;
+&lt;li&gt;In case of the failure of a single node, we want the cluster to remain available and the replacement node to integrate into the cluster.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Cycling&lt;/strong&gt;. If each node in the cluster is replaced by a new node, one at a time, the cluster should remain available.&lt;/li&gt;
+&lt;li&gt;We want to configure cloudformation such that updates to the launch configuration effect the rolling update described in #3.&lt;/li&gt;
+&lt;li&gt;In the event of failure of all nodes simultaneously, the cluster recovers, albiet with interruption in service. The state is restored from a previous backup.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h2 id=&#34;cloudformation:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Cloudformation&lt;/h2&gt;
+
+&lt;p&gt;We&amp;rsquo;re using &lt;a href=&#34;https://godoc.org/github.com/crewjam/go-cloudformation&#34;&gt;go-cloudformation&lt;/a&gt; to produce our cloudformation templates. The template consists of:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;A VPC containing three subnets across three availability zones.&lt;/li&gt;
+&lt;li&gt;An autoscaling group of CoreOS instances running etcd with an initial size of 3.&lt;/li&gt;
+&lt;li&gt;An internal load balancer that routes etcd client requests to the autoscaling group.&lt;/li&gt;
+&lt;li&gt;A lifecycle hook that monitors the autoscaling group and sends termination events to an SQS queue.&lt;/li&gt;
+&lt;li&gt;An S3 bucket that stores the backup&lt;/li&gt;
+&lt;li&gt;CloudWatch alarms that monitor the health of the cluster and that the backup is happening.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/aws-etcd-diagram.jpg&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;wrapping-etcd:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Wrapping etcd&lt;/h2&gt;
+
+&lt;p&gt;To implement the various features that we need on top of etcd we&amp;rsquo;ll write a program that &lt;code&gt;etcd-aws&lt;/code&gt; that discovers the correct configuration and invokes &lt;code&gt;etcd&lt;/code&gt;. It will also handle the backups and cluster state monitoring that I&amp;rsquo;ll describe later.&lt;/p&gt;
+
+&lt;p&gt;Because we&amp;rsquo;re using CoreOS we&amp;rsquo;ll need to replace the systemd unit file that replaces &lt;code&gt;etcd&lt;/code&gt; with a wrapper. &lt;a href=&#34;https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files&#34;&gt;Quoting&lt;/a&gt;:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;If you wish to modify the way that a unit functions, the best location to do so is within the &lt;code&gt;/etc/systemd/system&lt;/code&gt; directory. Unit files found in this directory location take precedence over any of the other locations on the filesystem. If you need to modify the system&amp;rsquo;s copy of a unit file, putting a replacement in this directory is the safest and most flexible way to do this.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;So we replace the built-in &lt;code&gt;etcd2.service&lt;/code&gt; with our own in &lt;code&gt;/etc/systemd/system/etcd2.service&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-systemd&#34;&gt;[Unit]
+Description=etcd2
+Conflicts=etcd.service
+
+[Service]
+Restart=always
+EnvironmentFile=/etc/etcd_aws.env
+ExecStart=/usr/bin/docker run --name etcd-aws \
+  -p 2379:2379 -p 2380:2380 \
+  -v /var/lib/etcd2:/var/lib/etcd2 \
+  -e ETCD_BACKUP_BUCKET -e ETCD_BACKUP_KEY \
+  --rm crewjam/etcd-aws
+ExecStop=-/usr/bin/docker rm -f etcd-aws
+
+[Install]
+WantedBy=multi-user.target
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The full source of &lt;code&gt;etcd-aws&lt;/code&gt; is in &lt;a href=&#34;https://github.com/crewjam/etcd-aws/&#34;&gt;the github repo&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;the-bootstrap-problem:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;The Bootstrap Problem&lt;/h2&gt;
+
+&lt;p&gt;Etcd provides three ways of bootstrapping, via the &lt;a href=&#34;https://coreos.com/etcd/docs/latest/clustering.html#etcd-discovery&#34;&gt;discovery service&lt;/a&gt; they operate, via &lt;a href=&#34;https://coreos.com/etcd/docs/latest/clustering.html#dns-discovery&#34;&gt;DNS SRV records&lt;/a&gt;, and via &lt;a href=&#34;https://coreos.com/etcd/docs/latest/clustering.html#static&#34;&gt;static configuration&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h3 id=&#34;bootstrapping-via-the-discovery-service:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Bootstrapping via the discovery service&lt;/h3&gt;
+
+&lt;p&gt;To use the discovery service you register your cluster specifying the initial cluster size and get back a random cluster ID. You provide that cluster cluster ID to each node you create. Using discovery requires that we bake the registration step into the CloudFormation template. This is possible with custom resources and lambda, but in the end it is annoying.&lt;/p&gt;
+
+&lt;p&gt;After the discovery service is aware of &lt;em&gt;n&lt;/em&gt; nodes, subsequent nodes that check in are assumed to be &lt;a href=&#34;https://coreos.com/etcd/docs/latest/proxy.html&#34;&gt;&amp;ldquo;proxies&amp;rdquo;&lt;/a&gt;, i.e. not full-fledged members of the cluster. This breaks cycling because any nodes launched after the first three will auto-discover as proxies, and as the initial nodes drop off, eventually all the nodes will be proxies and the cluster will break.&lt;/p&gt;
+
+&lt;p&gt;But the most important issue is that we introduce a dependence on a third-party service. We could run our own discovery service, but that requires a robust etcd&amp;ndash;which is what we are trying to achieve in the first place!&lt;/p&gt;
+
+&lt;h3 id=&#34;bootstrapping-via-dns-srv:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Bootstrapping via DNS SRV&lt;/h3&gt;
+
+&lt;p&gt;I didn&amp;rsquo;t look too hard at using DNS SRV records because would introduce complexity that I&amp;rsquo;m not super keen on having to manage.&lt;/p&gt;
+
+&lt;h3 id=&#34;bootstrapping-via-static:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Bootstrapping via static&lt;/h3&gt;
+
+&lt;p&gt;The only approach that remains is bootstraping via a static initial configuration. In this mode you specify some environment variables to etcd and it uses that to create the initial cluster. For example:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;ETCD_NAME=i-cb94f313
+ETCD_INITIAL_CLUSTER=i-19e3b3de=http://10.0.121.237:2380,i-cb94f313=http://10.0.50.67:2380,i-c8ccfa12=http://10.0.133.146:2380
+ETCD_INITIAL_CLUSTER_STATE=new
+ETCD_INITIAL_CLUSTER_TOKEN=arn:aws:autoscaling:us-west-2:012345678901:autoScalingGroup:8aa26c96-903f-481d-a43c-64bed19e9a58:autoScalingGroupName/etcdtest-MasterAutoscale-D0LX5CJYWRWY
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This looks easy and simple, but there are a bunch of non-obvious contraints.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;The value in &lt;code&gt;ETCD_NAME&lt;/code&gt; must be present in &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;etcd derives the cluster ID from &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; when &lt;code&gt;ETCD_INITIAL_CLUSTER_STATE&lt;/code&gt; is &lt;code&gt;new&lt;/code&gt;, by hashing it or something. This means that &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; must be &lt;strong&gt;identical&lt;/strong&gt; on all the nodes where &lt;code&gt;new&lt;/code&gt; is specified. Same order. Same names. Identical.&lt;/li&gt;
+&lt;li&gt;You might think that the cluster ID could be derived from &lt;code&gt;ETCD_INITIAL_CLUSTER_TOKEN&lt;/code&gt;, but it isn&amp;rsquo;t. &lt;code&gt;ETCD_INITIAL_CLUSTER_TOKEN&lt;/code&gt; is a safety feature to keep clusters from getting mixed up, but it is not used to seed the cluster ID.&lt;/li&gt;
+&lt;li&gt;Nodes will not elect a leader until &lt;em&gt;n&lt;/em&gt; / 2 + 1 of the nodes defined in &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; are present. It appears that you cannot join a cluster with &lt;code&gt;ETCD_INITIAL_CLUSTER_STATE=existing&lt;/code&gt; until this has happend.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&#34;the-boostrap-solution:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;The Boostrap Solution&lt;/h2&gt;
+
+&lt;p&gt;To make this work we need to get at least two nodes to invoke &lt;code&gt;etcd&lt;/code&gt; with the exact same &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; and &lt;code&gt;ETCD_INITIAL_CLUSTER_STATE=new&lt;/code&gt;. After that we only need to get &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; mostly correct and can use &lt;code&gt;ETCD_INITIAL_CLUSTER_STATE=existing&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;When &lt;code&gt;etcd-aws&lt;/code&gt; starts it determines the current members of the cluster using &lt;a href=&#34;https://github.com/crewjam/etcd-aws/&#34;&gt;ec2cluster&lt;/a&gt; to guess based on introspecting the current instance&amp;rsquo;s metadata and EC2 configuration. For our purposes, a cluster member is any instance in the same autoscaling group. Happily, &lt;em&gt;ec2cluster&lt;/em&gt; sorts the cluster members by launch time, from oldest to youngest, so each node will see the same cluster order.&lt;/p&gt;
+
+&lt;p&gt;Next we attempt to contact each node in the cluster to determine if the cluster currently has a leader. If any node can be contacted and reports a leader then we assume the cluster is in the &lt;code&gt;existing&lt;/code&gt; state, otherwise we assume the cluster is &lt;code&gt;new&lt;/code&gt;. (Remember: we have to have at least two nodes that join as &lt;code&gt;new&lt;/code&gt; in order to bootstrap the cluster and elect our first leader.)&lt;/p&gt;
+
+&lt;p&gt;We construct the &lt;code&gt;ETCD_INITIAL_CLUSTER&lt;/code&gt; value using the EC2 instance ID for the node name and the node&amp;rsquo;s private IP address.&lt;/p&gt;
+
+&lt;p&gt;We&amp;rsquo;re almost there, but not quite. I&amp;rsquo;ve observed cases where new nodes fail to join with a message like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;etcdmain: error validating peerURLs {ClusterID:500f903265bef4ea Members:[&amp;amp;{ID:7452025f0b7cee3e RaftAttributes:{PeerURLs:[http://10.0.133.146:2380]} Attributes:{Name:i-c8ccfa12 ClientURLs:[http://10.0.133.146:2379]}}] RemovedMemberIDs:[]}: member count is unequal
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This can be resolved by telling an existing node of the cluster about the new node just before it joins. We can do this by manually joining the node to the cluster by making a &lt;code&gt;POST&lt;/code&gt; request to the &lt;code&gt;/v2/members&lt;/code&gt; endpoint on one of the existing nodes.&lt;/p&gt;
+
+&lt;h2 id=&#34;the-cycling-problem:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;The Cycling Problem&lt;/h2&gt;
+
+&lt;p&gt;So now we can launch a cluster from nothing &amp;ndash; nifty. But because it&amp;rsquo;s 2016 and all the cool kids are doing &lt;a href=&#34;https://www.google.com/search?q=immutable%20infrastructure&#34;&gt;immutable infrastructure&lt;/a&gt; we have to as well. Here is where things get tricky.&lt;/p&gt;
+
+&lt;p&gt;Etcd uses the &lt;a href=&#34;https://speakerdeck.com/benbjohnson/raft-the-understandable-distributed-consensus-protocol&#34;&gt;Raft consensus algorithm&lt;/a&gt; to maintain consistency. These algorithms are designed such that a quorum of nodes is required to be in-sync to make a decision. If you have an &lt;em&gt;n&lt;/em&gt;-node cluster, you&amp;rsquo;ll need &lt;em&gt;n&lt;/em&gt; / 2 + 1 nodes for a quorum.&lt;/p&gt;
+
+&lt;p&gt;So what happens when we cycle nodes?&lt;/p&gt;
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;State&lt;/th&gt;
+&lt;th&gt;Total Nodes&lt;/th&gt;
+&lt;th&gt;Alive Nodes&lt;/th&gt;
+&lt;th&gt;Dead Nodes&lt;/th&gt;
+&lt;th&gt;Quorum&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Initial&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;0&lt;/td&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;After first replacement&lt;/td&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;1&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;After second replacement&lt;/td&gt;
+&lt;td&gt;5&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;2&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;/tr&gt;
+
+&lt;tr&gt;
+&lt;td&gt;After third replacement&lt;/td&gt;
+&lt;td&gt;6&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;3&lt;/td&gt;
+&lt;td&gt;4&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;ol&gt;
+&lt;li&gt;In the initial state we have three nodes. Two are required for quorum.&lt;/li&gt;
+&lt;li&gt;We create a node and destroy a node. Now the cluster thinks there are &lt;em&gt;n&lt;/em&gt;=4 nodes, one of which is unreachable. Three are required for quorum.&lt;/li&gt;
+&lt;li&gt;We create a node and destroy a node. Now &lt;em&gt;n&lt;/em&gt;=5, with two nodes unreachable and three required for quorum.&lt;/li&gt;
+&lt;li&gt;We create a node and destroy a node. Now &lt;em&gt;n&lt;/em&gt;=6, with three nodes unreachable and four required for quorum.&lt;br /&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;&lt;strong&gt;Boom&lt;/strong&gt; cluster broken. At this point it is impossible for the cluster to elect a leader. The missing nodes will never rejoin, but the cluster doesn&amp;rsquo;t know that, so they still count against the count required for quorum.&lt;/p&gt;
+
+&lt;p&gt;Crap.&lt;/p&gt;
+
+&lt;p&gt;The documentation describes how a cluster node can be gracefully shut down, removing it from the cluster. For robustness, we don&amp;rsquo;t want to rely on, or even expect that we&amp;rsquo;ll be able to shut a node down cleanly &amp;ndash; remember &lt;a href=&#34;http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html&#34;&gt;it&amp;rsquo;s chaotic out there&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;the-cycling-solution:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;The Cycling Solution&lt;/h2&gt;
+
+&lt;p&gt;Whever an instance is terminated we want to tell the remaining nodes about it so that our terminated instance doesn&amp;rsquo;t count against &lt;em&gt;n&lt;/em&gt; for the purposes of determining if there is a quorum. We don&amp;rsquo;t want to interfere too much with the failure detection built in to etcd, just give it a hint when autoscaling takes a node away.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&#34;http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/lifecycle-hooks.html&#34;&gt;Auto Scaling lifecycle hooks&lt;/a&gt; are just the ticket.&lt;/p&gt;
+
+&lt;p&gt;We create a lifecycle hook that notifies us whenever an instance is terminated. Experimentally, this works no matter if autoscaling kills your instance or if you kill an instance manually.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;t.AddResource(&amp;quot;MasterAutoscaleLifecycleHookQueue&amp;quot;, cfn.SQSQueue{})
+t.AddResource(&amp;quot;MasterAutoscaleLifecycleHookTerminating&amp;quot;, cfn.AutoScalingLifecycleHook{
+    AutoScalingGroupName:  cfn.Ref(&amp;quot;MasterAutoscale&amp;quot;).String(),
+    NotificationTargetARN: cfn.GetAtt(&amp;quot;MasterAutoscaleLifecycleHookQueue&amp;quot;, &amp;quot;Arn&amp;quot;),
+    RoleARN:               cfn.GetAtt(&amp;quot;MasterAutoscaleLifecycleHookRole&amp;quot;, &amp;quot;Arn&amp;quot;),
+    LifecycleTransition:   cfn.String(&amp;quot;autoscaling:EC2_INSTANCE_TERMINATING&amp;quot;),
+    HeartbeatTimeout:      cfn.Integer(30),
+})
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Next we create a service that will read from the queue and will tell etcd that the node is deleted whenever that happens.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;// handleLifecycleEvent is invoked whenever we get a lifecycle terminate message. It removes
+// terminated instances from the etcd cluster.
+func handleLifecycleEvent(m *ec2cluster.LifecycleMessage) (shouldContinue bool, err error) {
+    if m.LifecycleTransition != &amp;quot;autoscaling:EC2_INSTANCE_TERMINATING&amp;quot; {
+        return true, nil
+    }
+
+    // look for the instance in the cluster
+    resp, err := http.Get(fmt.Sprintf(&amp;quot;%s/v2/members&amp;quot;, etcdLocalURL))
+    if err != nil {
+        return false, err
+    }
+    members := etcdMembers{}
+    if err := json.NewDecoder(resp.Body).Decode(&amp;amp;members); err != nil {
+        return false, err
+    }
+    memberID := &amp;quot;&amp;quot;
+    for _, member := range members.Members {
+        if member.Name == m.EC2InstanceID {
+            memberID = member.ID
+        }
+    }
+
+    req, _ := http.NewRequest(&amp;quot;DELETE&amp;quot;, fmt.Sprintf(&amp;quot;%s/v2/members/%s&amp;quot;, etcdLocalURL, memberID), nil)
+    _, err = http.DefaultClient.Do(req)
+    if err != nil {
+        return false, err
+    }
+
+    return false, nil
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This code runs whenever the &lt;code&gt;etcd-aws&lt;/code&gt; wrapper is running.&lt;/p&gt;
+
+&lt;h2 id=&#34;rolling-updates:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Rolling Updates&lt;/h2&gt;
+
+&lt;p&gt;In AWS AutoScaling, Launch Configurations define how your instances get created. Normally when we make changes to an AutoScaling launch configuration in CloudFormation, it does not affect already running instances.&lt;/p&gt;
+
+&lt;p&gt;To be buzzword compliant with &amp;ldquo;immutable infrastructure&amp;rdquo;, we have to tell CloudFormation to perform rolling updates across our cluster whenever we make a change to the launch configuration. To affect this, we add an &lt;code&gt;UpdatePolicy&lt;/code&gt; and &lt;code&gt;CreationPolicy&lt;/code&gt; to the template. We&amp;rsquo;re telling CloudFormation to wait for a signal that each node is alive before proceeding to the next.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;t.Resources[&amp;quot;MasterAutoscale&amp;quot;] = &amp;amp;cfn.Resource{
+    UpdatePolicy: &amp;amp;cfn.UpdatePolicy{
+        AutoScalingRollingUpdate: &amp;amp;cfn.UpdatePolicyAutoScalingRollingUpdate{
+            MinInstancesInService: cfn.Integer(3),
+            PauseTime:             cfn.String(&amp;quot;PT15M&amp;quot;),
+            WaitOnResourceSignals: cfn.Bool(true),
+        },
+    },
+    CreationPolicy: &amp;amp;cfn.CreationPolicy{
+        ResourceSignal: &amp;amp;cfn.CreationPolicyResourceSignal{
+            Count:   cfn.Integer(3),
+            Timeout: cfn.String(&amp;quot;PT5M&amp;quot;),
+        },
+    },
+    Properties: cfn.AutoScalingAutoScalingGroup{
+        DesiredCapacity:         cfn.String(&amp;quot;3&amp;quot;),
+        MaxSize:                 cfn.String(&amp;quot;5&amp;quot;),
+        MinSize:                 cfn.String(&amp;quot;3&amp;quot;),
+        // ...
+    },
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now we need to send the signal that we are ready whenever systemd reports that etcd is running. For that we need another &lt;code&gt;oneshot&lt;/code&gt; service:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-systemd&#34;&gt;[Unit]
+Description=Cloudformation Signal Ready
+After=docker.service
+Requires=docker.service
+After=etcd2.service
+Requires=etcd2.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/environment
+ExecStart=/bin/bash -c &#39;\
+eval $(docker run crewjam/ec2cluster); \
+docker run --rm crewjam/awscli cfn-signal \
+    --resource MasterAutoscale --stack $TAG_AWS_CLOUDFORMATION_STACK_ID \
+    --region $REGION; \
+&#39;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;With this configured we get the kind of rolling updates that we want. Here is an excerpt of the CloudFormation events when performing a rolling upgrade&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-bash&#34;&gt;Temporarily setting autoscaling group MinSize and DesiredCapacity to 4.
+Rolling update initiated. Terminating 3 obsolete instance(s) in batches of 1, while keeping at least 3 instance(s) in service. Waiting on resource signals with a timeout of PT15M when new instances are added to the autoscaling group.
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Received SUCCESS signal with UniqueId i-81c6a159
+Terminating instance(s) [i-48fa9d90]; replacing with 1 new instance(s).
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Successfully terminated instance(s) [i-48fa9d90] (Progress 33%).
+Received SUCCESS signal with UniqueId i-0dc4a3d5
+Terminating instance(s) [i-b2095a75]; replacing with 1 new instance(s).
+Successfully terminated instance(s) [i-b2095a75] (Progress 67%).
+New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
+Successfully terminated instance(s) [i-7aa294a0] (Progress 100%).
+Terminating instance(s) [i-7aa294a0]; replacing with 0 new instance(s).
+Received SUCCESS signal with UniqueId i-203360e7
+UPDATE_COMPLETE
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;load-balancer-for-service-discovery:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Load Balancer for Service Discovery&lt;/h2&gt;
+
+&lt;p&gt;The CloudFormation template specifies an elastic load balancer for the etcd nodes. The purpose of this load balancer is to be suitable as a value of &lt;code&gt;ETCD_PEERS&lt;/code&gt; for etcd clients. The etcd client negotiates the list of peers on initial contact, so the load balancer just serves as a way to avoid having to keep an up-to-date list of peers for consumers of the service. After the initial sync, consumers communicate directly with the servers, so we still need tcp/2379 open from the rest of the VPC.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;t.AddResource(&amp;quot;MasterLoadBalancer&amp;quot;, cfn.ElasticLoadBalancingLoadBalancer{
+    Scheme:  cfn.String(&amp;quot;internal&amp;quot;),
+    Subnets: cfn.StringList(parameters.VpcSubnets...),
+    Listeners: &amp;amp;cfn.ElasticLoadBalancingListenerList{
+        cfn.ElasticLoadBalancingListener{
+            LoadBalancerPort: cfn.String(&amp;quot;2379&amp;quot;),
+            InstancePort:     cfn.String(&amp;quot;2379&amp;quot;),
+            Protocol:         cfn.String(&amp;quot;HTTP&amp;quot;),
+        },
+    },
+    HealthCheck: &amp;amp;cfn.ElasticLoadBalancingHealthCheck{
+        Target:             cfn.String(&amp;quot;HTTP:2379/health&amp;quot;),
+        HealthyThreshold:   cfn.String(&amp;quot;2&amp;quot;),
+        UnhealthyThreshold: cfn.String(&amp;quot;10&amp;quot;),
+        Interval:           cfn.String(&amp;quot;10&amp;quot;),
+        Timeout:            cfn.String(&amp;quot;5&amp;quot;),
+    },
+    SecurityGroups: cfn.StringList(
+        cfn.Ref(&amp;quot;MasterLoadBalancerSecurityGroup&amp;quot;)),
+})
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;backup:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Backup&lt;/h2&gt;
+
+&lt;p&gt;We need a persistent copy of the database in order to facilitate recovery in case all nodes fail.&lt;/p&gt;
+
+&lt;p&gt;To do this, I initially tried invoking &lt;code&gt;etcdctl backup&lt;/code&gt; which creates a
+consistent copy of the state, tarring up the results and storing them in S3.
+This approach didn&amp;rsquo;t work for me. Both the actual objects being stored &lt;strong&gt;and&lt;/strong&gt; information about the cluster state are captured in the backup. When restoring to a new cluster after complete node failure, the &lt;em&gt;raft&lt;/em&gt; state was broken and nothing worked. Ugh.&lt;/p&gt;
+
+&lt;p&gt;Instead it turned out to be pretty simple to capture each value directly using the etcd client, write them to a big JSON document and store &lt;em&gt;that&lt;/em&gt; in S3.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;// dumpEtcdNode writes a JSON representation of the nodes to w
+func dumpEtcdNode(key string, etcdClient *etcd.Client, w io.Writer) {
+    response, _ := etcdClient.Get(key, false, false)
+    json.NewEncoder(w).Encode(response.Node)
+    for _, childNode := range childNodes {
+        if childNode.Dir {
+            dumpEtcdNode(childNode.Key, etcdClient, w)
+        } else {
+            json.NewEncoder(w).Encode(childNode)
+        }
+    }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We want the backup to run on exactly one node very few minutes. We could hold a leader election using etcd itself, but it seemed easier to just run the backup on the current leader of the cluster.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;// if the cluster has a leader other than the current node, then skip backup.
+if nodeState.LeaderInfo.Leader != &amp;quot;&amp;quot; || nodeState.ID != nodeState.LeaderInfo.Leader {
+    log.Printf(&amp;quot;%s: http://%s:2379/v2/stats/self: not the leader&amp;quot;, *instance.InstanceId,
+        *instance.PrivateIpAddress)
+    continue
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;restoring:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Restoring&lt;/h3&gt;
+
+&lt;p&gt;We want the cluster to automatically recover from failure of all nodes. This should happen when:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;The cluster does not yet have a leader, i.e. &lt;code&gt;ETCD_INITIAL_CLUSTER_STATE&lt;/code&gt; is &lt;code&gt;new&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;The local node does not have any files in the data directory.&lt;/li&gt;
+&lt;li&gt;The backup exists in S3.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Note that there is a race condition here &amp;ndash; For a three node cluster, it is possible that the restore process could take place on two nodes. Since they are restoring the same thing, this seems to me like it doesn&amp;rsquo;t matter much.&lt;/p&gt;
+
+&lt;h2 id=&#34;health-checking:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Health Checking&lt;/h2&gt;
+
+&lt;p&gt;To monitor the health of the cluster, we create a CloudWatch alarm that checks the state of the Elastic Load Balancer:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;t.AddResource(&amp;quot;MasterLoadBalancerHealthAlarm&amp;quot;, cfn.CloudWatchAlarm{
+    ActionsEnabled:     cfn.Bool(true),
+    AlarmActions:       cfn.StringList(cfn.Ref(&amp;quot;HealthTopic&amp;quot;).String()),
+    OKActions:          cfn.StringList(cfn.Ref(&amp;quot;HealthTopic&amp;quot;).String()),
+    AlarmDescription:   cfn.String(&amp;quot;master instance health&amp;quot;),
+    AlarmName:          cfn.String(&amp;quot;MasterInstanceHealth&amp;quot;),
+    ComparisonOperator: cfn.String(&amp;quot;LessThanThreshold&amp;quot;),
+    EvaluationPeriods:  cfn.String(&amp;quot;1&amp;quot;),
+    Dimensions: &amp;amp;cfn.CloudWatchMetricDimensionList{
+        cfn.CloudWatchMetricDimension{
+            Name:  cfn.String(&amp;quot;LoadBalancerName&amp;quot;),
+            Value: cfn.Ref(&amp;quot;MasterLoadBalancer&amp;quot;).String(),
+        },
+    },
+    MetricName: cfn.String(&amp;quot;HealthyHostCount&amp;quot;),
+    Namespace:  cfn.String(&amp;quot;AWS/ELB&amp;quot;),
+    Period:     cfn.String(&amp;quot;60&amp;quot;),
+    Statistic:  cfn.String(&amp;quot;Minimum&amp;quot;),
+    Unit:       cfn.String(&amp;quot;Count&amp;quot;),
+
+    // Note: for scale=3 we should have no fewer than 1 healthy instance
+    // *PER AVAILABILITY ZONE*. This is confusing, I know.
+    Threshold: cfn.String(&amp;quot;1&amp;quot;),
+}) 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The load balancer, in turn, determines the health of each instance by querying each etcd instance&amp;rsquo;s self reported health url:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;HealthCheck: &amp;amp;cfn.ElasticLoadBalancingHealthCheck{
+    Target:             cfn.String(&amp;quot;HTTP:2379/health&amp;quot;),
+    HealthyThreshold:   cfn.String(&amp;quot;2&amp;quot;),
+    UnhealthyThreshold: cfn.String(&amp;quot;10&amp;quot;),
+    Interval:           cfn.String(&amp;quot;10&amp;quot;),
+    Timeout:            cfn.String(&amp;quot;5&amp;quot;),
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h3 id=&#34;backup-health:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Backup Health&lt;/h3&gt;
+
+&lt;p&gt;We also want to make sure that the backup keeps running. We want to get alerted if the backup file gets old. To make this happen, we create a custom CloudWatch metric and emit it every time the backup completes:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;cloudwatch.New(s.AwsSession).PutMetricData(&amp;amp;cloudwatch.PutMetricDataInput{
+    Namespace: aws.String(&amp;quot;Local/etcd&amp;quot;),
+    MetricData: []*cloudwatch.MetricDatum{
+        &amp;amp;cloudwatch.MetricDatum{
+            MetricName: aws.String(&amp;quot;BackupKeyCount&amp;quot;),
+            Dimensions: []*cloudwatch.Dimension{
+                &amp;amp;cloudwatch.Dimension{
+                    Name:  aws.String(&amp;quot;AutoScalingGroupName&amp;quot;),
+                    Value: aws.String(getInstanceTag(instance, &amp;quot;aws:autoscaling:groupName&amp;quot;)),
+                },
+            },
+            Unit:  aws.String(cloudwatch.StandardUnitCount),
+            Value: aws.Float64(float64(valueCount)),
+        },
+    },
+})
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This metric tells us how many values are present in the backup. We care about that a little, but mostly we care that &lt;code&gt;PutMetricData&lt;/code&gt; gets invoked every once in a while to provide these data. In other words, we care most about the &lt;code&gt;INSUFFICIENT_DATA&lt;/code&gt; case.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-go&#34;&gt;// this alarm is triggered (mostly) by the requirement that data be present.
+// if it isn&#39;t for 300 seconds, then the backups are failing and the check goes
+// into the INSUFFICIENT_DATA state and we are alerted.
+t.AddResource(&amp;quot;MasterBackupHealthAlarm&amp;quot;, cfn.CloudWatchAlarm{
+    ActionsEnabled:          cfn.Bool(true),
+    AlarmActions:            cfn.StringList(cfn.Ref(&amp;quot;HealthTopic&amp;quot;).String()),
+    InsufficientDataActions: cfn.StringList(cfn.Ref(&amp;quot;HealthTopic&amp;quot;).String()),
+    OKActions:               cfn.StringList(cfn.Ref(&amp;quot;HealthTopic&amp;quot;).String()),
+    AlarmDescription:        cfn.String(&amp;quot;key backup count&amp;quot;),
+    AlarmName:               cfn.String(&amp;quot;MasterBackupKeyCount&amp;quot;),
+    ComparisonOperator:      cfn.String(&amp;quot;LessThanThreshold&amp;quot;),
+    EvaluationPeriods:       cfn.String(&amp;quot;1&amp;quot;),
+    Dimensions: &amp;amp;cfn.CloudWatchMetricDimensionList{
+        cfn.CloudWatchMetricDimension{
+            Name:  cfn.String(&amp;quot;AutoScalingGroupName&amp;quot;),
+            Value: cfn.Ref(&amp;quot;MasterAutoscale&amp;quot;).String(),
+        },
+    },
+    MetricName: cfn.String(&amp;quot;BackupKeyCount&amp;quot;),
+    Namespace:  cfn.String(&amp;quot;Local/etcd&amp;quot;),
+    Period:     cfn.String(&amp;quot;300&amp;quot;),
+    Statistic:  cfn.String(&amp;quot;Minimum&amp;quot;),
+    Unit:       cfn.String(&amp;quot;Count&amp;quot;),
+    Threshold:  cfn.String(&amp;quot;1&amp;quot;),
+})
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;oh-em-gee:e7a6f8a70e295412e40afbdbc7546fcb&#34;&gt;Oh em gee.&lt;/h2&gt;
+
+&lt;p&gt;We now have a cloudformation template where we can:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Generate a working &lt;em&gt;etcd&lt;/em&gt; cluster from scratch.&lt;/li&gt;
+&lt;li&gt;Terminate arbitrary instances and watch the cluster recover.&lt;/li&gt;
+&lt;li&gt;Perform a rolling replacement of each node.&lt;/li&gt;
+&lt;li&gt;Backup and automatic restore in S3 to handle failure of all nodes&lt;/li&gt;
+&lt;li&gt;Health check for the service and the backup.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Pfew! That was a &lt;em&gt;lot&lt;/em&gt; more work that I thought it would be.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;d be grateful for questions, comments, or suggestions &amp;ndash; I&amp;rsquo;m &lt;a href=&#34;https://twitter.com/crewjam&#34;&gt;@crewjam&lt;/a&gt; on twitter.&lt;/p&gt;
+
+&lt;p&gt;Image Credit: &lt;a href=&#34;http://flickr.com/photos/22526649@N03/5466788868&#34;&gt;tedeytan&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Gerrit Code Review</title>
@@ -1259,21 +1757,20 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;The bubble says that &lt;code&gt;&amp;lt;&lt;/code&gt; is not allowed in filenames so lets see what happens when we try to create a file with &lt;code&gt;&amp;lt;&lt;/code&gt; in it.&lt;/p&gt;
 
-&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #75715e&#34;&gt;// cl test.cc &amp;amp; test.exe&lt;/span&gt;
-&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;windows.h&amp;gt;&lt;/span&gt;
-&lt;span style=&#34;color: #75715e&#34;&gt;#include &amp;lt;stdio.h&amp;gt;&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;// cl test.cc &amp;amp; test.exe
+#include &amp;lt;windows.h&amp;gt;
+#include &amp;lt;stdio.h&amp;gt;
 
-&lt;span style=&#34;color: #66d9ef&#34;&gt;int&lt;/span&gt; &lt;span style=&#34;color: #a6e22e&#34;&gt;main&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;()&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;
-  &lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;a&amp;lt;b&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
-  &lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
+int main() {
+  wchar_t path[] = L&amp;quot;a&amp;lt;b&amp;quot;;
+  CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
   
-  &lt;span style=&#34;color: #f8f8f2&#34;&gt;LPVOID&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString;&lt;/span&gt;
-  &lt;span style=&#34;color: #f8f8f2&#34;&gt;DWORD&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GetLastError();&lt;/span&gt;
-  &lt;span style=&#34;color: #f8f8f2&#34;&gt;FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_FROM_SYSTEM&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;|&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FORMAT_MESSAGE_IGNORE_INSERTS,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;(LPTSTR)&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;&amp;amp;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
-  &lt;span style=&#34;color: #f8f8f2&#34;&gt;printf(&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;error: %d %s&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastError,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;lastErrorString);&lt;/span&gt;
-&lt;span style=&#34;color: #f8f8f2&#34;&gt;}&lt;/span&gt;
-&lt;/pre&gt;&lt;/div&gt;
-
+  LPVOID lastErrorString;
+  DWORD lastError = GetLastError();
+  FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastError, 0, (LPTSTR) &amp;amp;lastErrorString, 0, NULL);
+  printf(&amp;quot;error: %d %s\n&amp;quot;, lastError, lastErrorString);
+}
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;This program produces:&lt;/p&gt;
 
@@ -1286,10 +1783,9 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;Even though it is invalid, procmon is telling us the path we &lt;em&gt;attempted&lt;/em&gt; to open. Lets try creating a file named 你好世界.&lt;/p&gt;
 
-&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;5&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0x4F60&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x597D&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x4E16&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x754C&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
-&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;wchar_t path[5] = {0x4F60, 0x597D, 0x4E16, 0x754C, 0x0};
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/procmon3.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
 
@@ -1297,10 +1793,9 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;What happens if we try to create a file called &lt;code&gt;foo\nbar&lt;/code&gt;? &lt;sup class=&#34;footnote-ref&#34; id=&#34;fnref:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;&lt;a rel=&#34;footnote&#34; href=&#34;#fn:8d9135cf35512a0bf8ea0c373870ccd5:newline&#34;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;/p&gt;
 
-&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #e6db74&#34;&gt;L&amp;quot;foo&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;\n&lt;/span&gt;&lt;span style=&#34;color: #e6db74&#34;&gt;bar&amp;quot;&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;;&lt;/span&gt;
-&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;wchar_t path[] = L&amp;quot;foo\nbar&amp;quot;;
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;This program produces&lt;/p&gt;
 
@@ -1317,10 +1812,9 @@ implications, we might want errors that are a little friendlier.&lt;/p&gt;&lt;/l
 
 &lt;p&gt;UTF-16 code points &lt;a href=&#34;http://en.wikipedia.org/wiki/UTF-16#U.2BD800_to_U.2BDFFF&#34;&gt;between 0xd800 and 0xdfff are invalid&lt;/a&gt;. Let&amp;rsquo;s see what happens if we try to create a file with invalid UTF-16.&lt;/p&gt;
 
-&lt;div class=&#34;highlight&#34; style=&#34;background: #272822&#34;&gt;&lt;pre style=&#34;line-height: 125%&#34;&gt;&lt;span style=&#34;color: #66d9ef&#34;&gt;wchar_t&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;path[&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;2&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;]&lt;/span&gt; &lt;span style=&#34;color: #f92672&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;{&lt;/span&gt;&lt;span style=&#34;color: #ae81ff&#34;&gt;0xd801&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0x0000&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;};&lt;/span&gt;
-&lt;span style=&#34;color: #f8f8f2&#34;&gt;CreateFileW(path,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;GENERIC_WRITE,&lt;/span&gt; &lt;span style=&#34;color: #ae81ff&#34;&gt;0&lt;/span&gt;&lt;span style=&#34;color: #f8f8f2&#34;&gt;,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;CREATE_NEW,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;FILE_ATTRIBUTE_NORMAL,&lt;/span&gt; &lt;span style=&#34;color: #f8f8f2&#34;&gt;NULL);&lt;/span&gt;
-&lt;/pre&gt;&lt;/div&gt;
-
+&lt;pre&gt;&lt;code class=&#34;language-cpp&#34;&gt;wchar_t path[2] = {0xd801, 0x0000};
+CreateFileW(path, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;This program produces&lt;/p&gt;
 

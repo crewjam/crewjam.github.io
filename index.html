@@ -32,7 +32,7 @@
       m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
       })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
-      ga('create', '{https:\/\/crewjam.com\/index.xml 0xc208150060 map[Pages:[           ]] crewjam.com  [] map[] 0001-01-01 00:00:00 \x2b0000 UTC 0001-01-01 00:00:00 \x2b0000 UTC { 0} {\/ https:\/\/crewjam.com\/  } true \x3cnil\x3e {{0 0} 0} \x3cnil\x3e}', 'auto');
+      ga('create', '{https:\/\/crewjam.com\/index.xml 0xc2080c0060 map[Pages:[            ]] crewjam.com  [] map[] 0001-01-01 00:00:00 \x2b0000 UTC 0001-01-01 00:00:00 \x2b0000 UTC { 0} {\/ https:\/\/crewjam.com\/  } true \x3cnil\x3e {{0 0} 0} \x3cnil\x3e}', 'auto');
       ga('send', 'pageview');
     </script>
 
@@ -82,6 +82,18 @@
 
 <section id="articles" data-speed="6" data-type="background">
 <div class="row article-ul">
+
+  <div class="col-xs-6 col-sm-4 col-md-3 col-lg-2">
+    <div class="thumbnail">
+      <a href="/etcd-aws/">
+	      <img class="media-object img-circle article-img" src="https://crewjam.com/images/2011_Library_of_Congress_USA_5466788868_card_catalog.jpg" alt="...">
+	  </a>
+      <div class="caption">
+        <h4>Building a Robust etcd cluster in AWS</h4>
+        <p>Consensus based directories are the core of many distributed systems. People use tools like zookeeper, etcd and consul to manage distributed state, elect leaders, and discover services. Building a robust cluster of these services in a chaotic environment was trickier than I thought, so I&rsquo;m documenting what I figured out here. The source for all this is available on github. Goals Use cloudformation to establish a three node autoscaling group of etcd instances.</p>
+      </div>
+    </div>
+  </div>
 
   <div class="col-xs-6 col-sm-4 col-md-3 col-lg-2">
     <div class="thumbnail">
