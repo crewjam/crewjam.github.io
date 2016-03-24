@@ -78,12 +78,24 @@
   <article class="post post">
     <header>
       <h1 class="page-title">Yubikey for Local Authentication on Mac</h1>
-      <h2>how I set up OS X to require a Yubikey for local login</h2>
+      <h2>(broken) How I set up OS X to require a Yubikey for local login</h2>
     </header>
     <section class="post-content">
       
 
-<p>How I set up OS X to require a Yubikey for local login.</p>
+<p>How I set up OS X to require a Yubikey for local login. (Obsolete)</p>
+
+<h1 id="update:49a8fbad506e0b3dd09d280f8def04ea">Update</h1>
+
+<p>So funny story. I set all this up, and then one day I forgot my Yubikey and needed to get into the computer.</p>
+
+<p>There is no better test of your own security than getting locked out by your own security.</p>
+
+<p>So it turns out that I hadn&rsquo;t really thought this through. You can get into single user mode (or whatever Mac OS calls it) with just a password and from there change the config to disable the yubikey module.</p>
+
+<p>I&rsquo;m leaving this here for posterity, but don&rsquo;t do it. It&rsquo;s pointless.</p>
+
+<hr />
 
 <p>A YubiKey is a small hardware device that offers two-factor authentication with a simple touch of a button. It appears like a USB human interface device (read: keyboard) and under normal conditions, when you press the button, it emits some random characters as if you typed them.</p>
 
@@ -196,7 +208,7 @@ account    required       pam_opendirectory.so
 
 </main>
     <footer class="site-footer clearfix">
-        <section class="copyright text-center">© 2015 Ross Kinder.</section>
+        <section class="copyright text-center">© 2016 Ross Kinder.</section>
     </footer>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>

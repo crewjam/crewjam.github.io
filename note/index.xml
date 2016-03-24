@@ -6,9 +6,167 @@
     <description>Recent content in Notes on crewjam.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
-    <copyright>© 2015 Ross Kinder.</copyright>
-    <lastBuildDate>Thu, 27 Aug 2015 15:25:20 -0700</lastBuildDate>
+    <copyright>© 2016 Ross Kinder.</copyright>
+    <lastBuildDate>Tue, 19 Jan 2016 00:00:00 -0500</lastBuildDate>
     <atom:link href="https://crewjam.com/note/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>How to set up Amazon Fire Tablet</title>
+      <link>https://crewjam.com/note/amazon-fire/</link>
+      <pubDate>Tue, 19 Jan 2016 00:00:00 -0500</pubDate>
+      
+      <guid>https://crewjam.com/note/amazon-fire/</guid>
+      <description>
+
+&lt;p&gt;The Amazon Fire is a cool $70 tablet, but the software it ships with is full of ads and junk. Here are some notes on how I replaced the firmware.&lt;/p&gt;
+
+&lt;p&gt;This is random junk on off the internet. You probably don&amp;rsquo;t want to tell this think your secrets. :)&lt;/p&gt;
+
+&lt;p&gt;Source video &lt;a href=&#34;https://www.youtube.com/watch?v=NaCBSuUuhRE&#34;&gt;https://www.youtube.com/watch?v=NaCBSuUuhRE&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&#34;install-sdk-tools:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;Install SDK Tools&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Get the Android SDK tools from &lt;a href=&#34;http://developer.android.com/sdk/index.html&#34;&gt;http://developer.android.com/sdk/index.html&lt;/a&gt; if you don&amp;rsquo;t
+already have them. I ended up downloading
+&lt;a href=&#34;http://dl.google.com/android/android-sdk_r24.4.1-macosx.zip&#34;&gt;http://dl.google.com/android/android-sdk_r24.4.1-macosx.zip&lt;/a&gt;
+But you&amp;rsquo;ll fetch whatever is current. You&amp;rsquo;ll need to extract the zip file
+and run &lt;code&gt;./tools/android&lt;/code&gt; which downloads additional compontents. The only
+extra component you&amp;rsquo;ll need is &lt;code&gt;Android SDK Platform-tools&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://crewjam.com/images/fire01.png&#34; alt=&#34;&#34; /&gt;&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;$ export PATH=$PATH:$(pwd)/platform-tools
+$ adb version
+Android Debug Bridge version 1.0.32
+Revision 09a0d98bebce-android
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;Turn on ADB debugging on the device. Go to settings, Device Options, and tap the serial number
+seven times. This enables a new menu called &amp;ldquo;Developer options&amp;rdquo;. In &amp;ldquo;Developer Options&amp;rdquo;, under
+&amp;ldquo;Debugging&amp;rdquo; choose &amp;ldquo;Enable ADB&amp;rdquo;.&lt;/p&gt;&lt;/li&gt;
+
+&lt;li&gt;&lt;p&gt;Check that ADB can see your device.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;  $ adb devices
+  List of devices attached
+  G0K0H404551211FX  device
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Reboot the device into the bootloader:&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;  adb reboot bootloader
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;root-on-5-0-1-if-your-device-has-not-been-on-wifi:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;Root on 5.0.1 (if your device has not been on WiFi)&lt;/h2&gt;
+
+&lt;p&gt;If you haven&amp;rsquo;t let the device talk to amazon yet, then it has Fire OS 5.0.1 on it, and you can use this method (tested):&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;adb push ~/Downloads/Amazon-Fire-5th-Gen-SuperTool/SuperSU-v2.46.zip /sdcard/&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;adb reboot bootloader&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;fastboot boot ~/Downloads/AmazonFire5thGenSuperTool/apps/TWRP_Fire_2.8.7.0.img&lt;/code&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;echo.--------------------------------------------------------------------------------
+echo [*] once TWRP recovery Boots up swipe to allow modifications
+echo [*] then select install and navigate to SuperSU-v2.46.zip on the sdcard
+echo [*] select it then swipe to flash once finished select reboot system
+echo.--------------------------------------------------------------------------------
+echo [*] When the device has fully booted up you will have root access. 
+echo [*] check in the app drawer for supersu app. 
+echo [*] NOTE now that you have root please block ota updates option 3 
+echo [*] so that you can keep it safe. 
+echo.--------------------------------------------------------------------------------
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;image&lt;/p&gt;
+
+&lt;h2 id=&#34;root-on-5-1-x-if-your-device-has-been-used-a-little-already:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;Root on &amp;gt;= 5.1.x (if your device has been used a little already)&lt;/h2&gt;
+
+&lt;p&gt;If you have, then you need to use the alternate method (based on my recollection):&lt;/p&gt;
+
+&lt;p&gt;Once the screen is black and says &amp;ldquo;FASTBOOT mode&amp;hellip;&amp;rdquo; then do:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;fastboot oem append-cmdline &amp;quot;androidboot.unlocked_kernel=true&amp;quot;
+fastboot continue
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Wait for the device to boot:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;adb wait-for-device &amp;amp;&amp;amp; adb remount
+adb push files/libsupol.so /data/local/tmp/
+adb push files/root_fire.sh /data/local/tmp/
+adb push files/su /data/local/tmp/
+adb push files/Superuser.apk /data/local/tmp/
+adb push files/supolicy /data/local/tmp/
+adb shell chmod 777 /data/local/tmp/root_fire.sh
+adb shell /data/local/tmp/root_fire.sh
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;echo.--------------------------------------------------------------------------------
+echo [*] Once the screen is black and says fastboot in the corner
+echo [*] press and key to continue the script.
+echo.--------------------------------------------------------------------------------
+pause &amp;gt; nul
+files\fastboot.exe oem append-cmdline &amp;quot;androidboot.unlocked_kernel=true&amp;quot;
+timeout 8 &amp;gt; nul
+files\fastboot.exe continue
+echo.--------------------------------------------------------------------------------
+echo [*] your device is rebooting and will finish the root process.
+echo.--------------------------------------------------------------------------------
+timeout 5 &amp;gt; nul
+files\adb.exe wait-for-device &amp;amp;&amp;amp; files\adb.exe remount
+files\adb.exe shell /system/xbin/su --install
+echo.--------------------------------------------------------------------------------
+echo [*] one last reboot to finish process
+echo.--------------------------------------------------------------------------------
+files\adb.exe reboot
+echo.--------------------------------------------------------------------------------
+echo [*] process finished now just wait for your device to fully boot up
+echo [*] this will take some time if you are on the Optimizing system screen.
+echo [*] NOTE now that you have root please block ota updates option 3 
+echo [*] so that you can keep it safe. 
+echo.--------------------------------------------------------------------------------
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;fetch-the-slimlp-bits:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;Fetch the SlimLP bits.&lt;/h2&gt;
+
+&lt;h2 id=&#34;slimlp-bits:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;SlimLP bits&lt;/h2&gt;
+
+&lt;p&gt;&lt;a href=&#34;http://forum.xda-developers.com/amazon-fire/orig-development/rom-slimlp-5-1-1-amazon-fire-2015-ford-t3256053&#34;&gt;http://forum.xda-developers.com/amazon-fire/orig-development/rom-slimlp-5-1-1-amazon-fire-2015-ford-t3256053&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Unofficial SlimLP 0.14: &lt;a href=&#34;https://www.androidfilehost.com/?fid=24352994023707680&#34;&gt;https://www.androidfilehost.com/?fid=24352994023707680&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Google Applications: &lt;a href=&#34;http://goo.gl/4QNwn6&#34;&gt;http://goo.gl/4QNwn6&lt;/a&gt; &amp;gt; Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;$ adb push Slim-ford-5.1.1.beta.0.14-UNOFFICIAL-20160107-1121.zip /sdcard/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;install-flashfire:a03eec026658bd5a4dcf9ba0c99c7357&#34;&gt;Install FlashFire&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&#34;http://rootjunkysdl.com/getdownload.php?file=Amazon%20Fire%205th%20gen/flashfire-0.24.apk&#34;&gt;http://rootjunkysdl.com/getdownload.php?file=Amazon%20Fire%205th%20gen/flashfire-0.24.apk&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-shell&#34;&gt;  adb install ~/Downloads/flashfire-0.24.apk
+  adb push Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip /sdcard/
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Open Flashfire&lt;/li&gt;
+&lt;li&gt;Plus &amp;gt; wipes &amp;gt; &amp;ldquo;System Data&amp;rdquo;, &amp;ldquo;3rd Party&amp;rdquo;, &amp;ldquo;Dalvik cache&amp;rdquo;, &amp;ldquo;Cache partition&amp;rdquo; (not &amp;ldquo;Internal Storage&amp;rdquo;)&lt;/li&gt;
+&lt;li&gt;Plus -&amp;gt; &amp;ldquo;Flash zip or OTA&amp;rdquo; &amp;gt; &amp;ldquo;Slim-ford-&amp;hellip;.zip&amp;rdquo;. Check &amp;ldquo;auto mount&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;Plus -&amp;gt; &amp;ldquo;Flash zip or OTA&amp;rdquo; &amp;gt; &amp;ldquo;Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip&amp;rdquo;. Check &amp;ldquo;auto mount&amp;rdquo;&lt;/li&gt;
+&lt;li&gt;Cross your fingers and click &amp;ldquo;flash&amp;rdquo;&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+    </item>
     
     <item>
       <title>zsh Configuration &amp; Notes</title>

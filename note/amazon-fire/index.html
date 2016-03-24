@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta property="og:title" content=" How to set up Amazon Fire Tablet &middot;  crewjam.com" />
+    <meta property="og:site_name" content="crewjam.com" />
+    <meta property="og:url" content="https://crewjam.com/note/amazon-fire/" />
+    
+    
+    <meta property="og:type" content="article" />
+    <meta property="og:article:published_time" content="2016-01-19T00:00:00-05:00" />
+    
+    
+
+    <title> How to set up Amazon Fire Tablet &middot;  crewjam.com</title>
+
+    <meta name="description" content="and also some stuff about security" />
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link rel="shortcut icon" href="https://crewjam.com/images/favicon.ico">
+    
+    
+    <link href="https://crewjam.comindex.xml" rel="alternate" type="application/rss+xml" title="crewjam.com" />
+    
+    
+    <meta name="generator" content="Hugo 0.15-DEV" />
+
+    <link rel="canonical" href="https://crewjam.com/note/amazon-fire/" />
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+      ga('create', '', 'auto');
+      ga('send', 'pageview');
+    </script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css">
+    <link href='//fonts.googleapis.com/css?family=Lora' rel='stylesheet' type='text/css'>
+    <link href='//fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/css/lightbox.min.css">
+    <link rel="stylesheet" href="https://crewjam.com/css/main.css">
+  </head>
+  <body>
+
+
+
+
+<section id="intro" class="post-intro" style="background-image: url(https://crewjam.com/images/firefighter-484540_960_720.jpg)">
+  <div class="pull-left avatar">
+	<img src="/images/avatar2.jpg">
+    <ul class="list-unstyled">
+    	<li>
+    		<i class="fa fa-user"></i>
+    		<a href="mailto:ross@kndr.org">Ross Kinder</a></li>
+    	<li>
+    		<i class="fa fa-envelope"></i>
+    		<a href="mailto:ross@kndr.org">ross@kndr.org</a></li>
+    	<li>
+    		<i class="fa fa-twitter"></i>
+    		<a href="http://twitter.com/crewjam">@crewjam</a></li>
+      	<li>
+      		<i class="fa fa-github"></i>
+      		<a href="http://github.com/crewjam">crewjam</a></li>
+    </ul>
+</div>
+  <div class="hero-unit">
+  </div>
+  <div class="clearfix"></div>
+</section>
+
+  <article class="post note">
+    <header>
+      <h1 class="page-title">How to set up Amazon Fire Tablet</h1>
+      <h2></h2>
+    </header>
+    <section class="post-content">
+      
+
+<p>The Amazon Fire is a cool $70 tablet, but the software it ships with is full of ads and junk. Here are some notes on how I replaced the firmware.</p>
+
+<p>This is random junk on off the internet. You probably don&rsquo;t want to tell this think your secrets. :)</p>
+
+<p>Source video <a href="https://www.youtube.com/watch?v=NaCBSuUuhRE">https://www.youtube.com/watch?v=NaCBSuUuhRE</a></p>
+
+<h2 id="install-sdk-tools:a03eec026658bd5a4dcf9ba0c99c7357">Install SDK Tools</h2>
+
+<ul>
+<li>Get the Android SDK tools from <a href="http://developer.android.com/sdk/index.html">http://developer.android.com/sdk/index.html</a> if you don&rsquo;t
+already have them. I ended up downloading
+<a href="http://dl.google.com/android/android-sdk_r24.4.1-macosx.zip">http://dl.google.com/android/android-sdk_r24.4.1-macosx.zip</a>
+But you&rsquo;ll fetch whatever is current. You&rsquo;ll need to extract the zip file
+and run <code>./tools/android</code> which downloads additional compontents. The only
+extra component you&rsquo;ll need is <code>Android SDK Platform-tools</code>.</li>
+</ul>
+
+<p><img src="/images/fire01.png" alt="" /></p>
+
+<pre><code class="language-shell">$ export PATH=$PATH:$(pwd)/platform-tools
+$ adb version
+Android Debug Bridge version 1.0.32
+Revision 09a0d98bebce-android
+</code></pre>
+
+<ul>
+<li><p>Turn on ADB debugging on the device. Go to settings, Device Options, and tap the serial number
+seven times. This enables a new menu called &ldquo;Developer options&rdquo;. In &ldquo;Developer Options&rdquo;, under
+&ldquo;Debugging&rdquo; choose &ldquo;Enable ADB&rdquo;.</p></li>
+
+<li><p>Check that ADB can see your device.</p></li>
+</ul>
+
+<pre><code class="language-shell">  $ adb devices
+  List of devices attached
+  G0K0H404551211FX  device
+</code></pre>
+
+<ul>
+<li>Reboot the device into the bootloader:</li>
+</ul>
+
+<pre><code class="language-shell">  adb reboot bootloader
+</code></pre>
+
+<h2 id="root-on-5-0-1-if-your-device-has-not-been-on-wifi:a03eec026658bd5a4dcf9ba0c99c7357">Root on 5.0.1 (if your device has not been on WiFi)</h2>
+
+<p>If you haven&rsquo;t let the device talk to amazon yet, then it has Fire OS 5.0.1 on it, and you can use this method (tested):</p>
+
+<ul>
+<li><code>adb push ~/Downloads/Amazon-Fire-5th-Gen-SuperTool/SuperSU-v2.46.zip /sdcard/</code></li>
+<li><code>adb reboot bootloader</code></li>
+<li><code>fastboot boot ~/Downloads/AmazonFire5thGenSuperTool/apps/TWRP_Fire_2.8.7.0.img</code></li>
+</ul>
+
+<pre><code class="language-shell">echo.--------------------------------------------------------------------------------
+echo [*] once TWRP recovery Boots up swipe to allow modifications
+echo [*] then select install and navigate to SuperSU-v2.46.zip on the sdcard
+echo [*] select it then swipe to flash once finished select reboot system
+echo.--------------------------------------------------------------------------------
+echo [*] When the device has fully booted up you will have root access. 
+echo [*] check in the app drawer for supersu app. 
+echo [*] NOTE now that you have root please block ota updates option 3 
+echo [*] so that you can keep it safe. 
+echo.--------------------------------------------------------------------------------
+</code></pre>
+
+<p>image</p>
+
+<h2 id="root-on-5-1-x-if-your-device-has-been-used-a-little-already:a03eec026658bd5a4dcf9ba0c99c7357">Root on &gt;= 5.1.x (if your device has been used a little already)</h2>
+
+<p>If you have, then you need to use the alternate method (based on my recollection):</p>
+
+<p>Once the screen is black and says &ldquo;FASTBOOT mode&hellip;&rdquo; then do:</p>
+
+<pre><code class="language-shell">fastboot oem append-cmdline &quot;androidboot.unlocked_kernel=true&quot;
+fastboot continue
+</code></pre>
+
+<p>Wait for the device to boot:</p>
+
+<pre><code class="language-shell">adb wait-for-device &amp;&amp; adb remount
+adb push files/libsupol.so /data/local/tmp/
+adb push files/root_fire.sh /data/local/tmp/
+adb push files/su /data/local/tmp/
+adb push files/Superuser.apk /data/local/tmp/
+adb push files/supolicy /data/local/tmp/
+adb shell chmod 777 /data/local/tmp/root_fire.sh
+adb shell /data/local/tmp/root_fire.sh
+</code></pre>
+
+<pre><code class="language-shell">echo.--------------------------------------------------------------------------------
+echo [*] Once the screen is black and says fastboot in the corner
+echo [*] press and key to continue the script.
+echo.--------------------------------------------------------------------------------
+pause &gt; nul
+files\fastboot.exe oem append-cmdline &quot;androidboot.unlocked_kernel=true&quot;
+timeout 8 &gt; nul
+files\fastboot.exe continue
+echo.--------------------------------------------------------------------------------
+echo [*] your device is rebooting and will finish the root process.
+echo.--------------------------------------------------------------------------------
+timeout 5 &gt; nul
+files\adb.exe wait-for-device &amp;&amp; files\adb.exe remount
+files\adb.exe shell /system/xbin/su --install
+echo.--------------------------------------------------------------------------------
+echo [*] one last reboot to finish process
+echo.--------------------------------------------------------------------------------
+files\adb.exe reboot
+echo.--------------------------------------------------------------------------------
+echo [*] process finished now just wait for your device to fully boot up
+echo [*] this will take some time if you are on the Optimizing system screen.
+echo [*] NOTE now that you have root please block ota updates option 3 
+echo [*] so that you can keep it safe. 
+echo.--------------------------------------------------------------------------------
+</code></pre>
+
+<h2 id="fetch-the-slimlp-bits:a03eec026658bd5a4dcf9ba0c99c7357">Fetch the SlimLP bits.</h2>
+
+<h2 id="slimlp-bits:a03eec026658bd5a4dcf9ba0c99c7357">SlimLP bits</h2>
+
+<p><a href="http://forum.xda-developers.com/amazon-fire/orig-development/rom-slimlp-5-1-1-amazon-fire-2015-ford-t3256053">http://forum.xda-developers.com/amazon-fire/orig-development/rom-slimlp-5-1-1-amazon-fire-2015-ford-t3256053</a></p>
+
+<p>Unofficial SlimLP 0.14: <a href="https://www.androidfilehost.com/?fid=24352994023707680">https://www.androidfilehost.com/?fid=24352994023707680</a></p>
+
+<p>Google Applications: <a href="http://goo.gl/4QNwn6">http://goo.gl/4QNwn6</a> &gt; Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip</p>
+
+<pre><code class="language-shell">$ adb push Slim-ford-5.1.1.beta.0.14-UNOFFICIAL-20160107-1121.zip /sdcard/
+</code></pre>
+
+<h2 id="install-flashfire:a03eec026658bd5a4dcf9ba0c99c7357">Install FlashFire</h2>
+
+<ul>
+<li><a href="http://rootjunkysdl.com/getdownload.php?file=Amazon%20Fire%205th%20gen/flashfire-0.24.apk">http://rootjunkysdl.com/getdownload.php?file=Amazon%20Fire%205th%20gen/flashfire-0.24.apk</a></li>
+</ul>
+
+<pre><code class="language-shell">  adb install ~/Downloads/flashfire-0.24.apk
+  adb push Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip /sdcard/
+</code></pre>
+
+<ul>
+<li>Open Flashfire</li>
+<li>Plus &gt; wipes &gt; &ldquo;System Data&rdquo;, &ldquo;3rd Party&rdquo;, &ldquo;Dalvik cache&rdquo;, &ldquo;Cache partition&rdquo; (not &ldquo;Internal Storage&rdquo;)</li>
+<li>Plus -&gt; &ldquo;Flash zip or OTA&rdquo; &gt; &ldquo;Slim-ford-&hellip;.zip&rdquo;. Check &ldquo;auto mount&rdquo;</li>
+<li>Plus -&gt; &ldquo;Flash zip or OTA&rdquo; &gt; &ldquo;Slim_mini_gapps.BETA.6.0.build.0.x-20160121-1447.zip&rdquo;. Check &ldquo;auto mount&rdquo;</li>
+<li>Cross your fingers and click &ldquo;flash&rdquo;</li>
+</ul>
+
+    </section>
+
+  <footer class="post-footer text-center">
+    Updated 
+    <time class="post-date" datetime="2016-01-19T00:00:00-05:00">
+      Jan 19, 2016
+    </time>
+    By
+    <author>Ross Kinder</author>
+
+    <section class="share">
+      <a href="https://twitter.com/share?text=How%20to%20set%20up%20Amazon%20Fire%20Tablet&amp;url=https%3a%2f%2fcrewjam.com%2fnote%2famazon-fire%2f"
+          onclick="window.open(this.href, 'twitter-share', 'width=550,height=235');return false;">
+          <i class="fa fa-twitter"></i> tweet
+      </a>
+      <a href="https://www.facebook.com/sharer/sharer.php?u=https%3a%2f%2fcrewjam.com%2fnote%2famazon-fire%2f"
+          onclick="window.open(this.href, 'facebook-share','width=580,height=296');return false;">
+          <i class="fa fa-facebook"></i> like
+      </a>
+      <a href="https://plus.google.com/share?url=https%3a%2f%2fcrewjam.com%2fnote%2famazon-fire%2f"
+         onclick="window.open(this.href, 'google-plus-share', 'width=490,height=530');return false;">
+          <i class="fa fa-google-plus"></i> +1
+      </a>
+    </section>
+  </footer>
+</article>
+
+</main>
+    <footer class="site-footer clearfix">
+        <section class="copyright text-center">© 2016 Ross Kinder.</section>
+    </footer>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/0.0.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.8.1/js/lightbox.min.js"></script>
+</body>
+</html>
+

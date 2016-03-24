@@ -6,7 +6,7 @@
     <description>Recent content in Posts on crewjam.com</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-US</language>
-    <copyright>© 2015 Ross Kinder.</copyright>
+    <copyright>© 2016 Ross Kinder.</copyright>
     <lastBuildDate>Fri, 18 Mar 2016 09:38:19 -0400</lastBuildDate>
     <atom:link href="https://crewjam.com/post/index.xml" rel="self" type="application/rss+xml" />
     
@@ -792,7 +792,19 @@ clref() {
       <guid>https://crewjam.com/yubikey-for-local-authentication-on-mac/</guid>
       <description>
 
-&lt;p&gt;How I set up OS X to require a Yubikey for local login.&lt;/p&gt;
+&lt;p&gt;How I set up OS X to require a Yubikey for local login. (Obsolete)&lt;/p&gt;
+
+&lt;h1 id=&#34;update:49a8fbad506e0b3dd09d280f8def04ea&#34;&gt;Update&lt;/h1&gt;
+
+&lt;p&gt;So funny story. I set all this up, and then one day I forgot my Yubikey and needed to get into the computer.&lt;/p&gt;
+
+&lt;p&gt;There is no better test of your own security than getting locked out by your own security.&lt;/p&gt;
+
+&lt;p&gt;So it turns out that I hadn&amp;rsquo;t really thought this through. You can get into single user mode (or whatever Mac OS calls it) with just a password and from there change the config to disable the yubikey module.&lt;/p&gt;
+
+&lt;p&gt;I&amp;rsquo;m leaving this here for posterity, but don&amp;rsquo;t do it. It&amp;rsquo;s pointless.&lt;/p&gt;
+
+&lt;hr /&gt;
 
 &lt;p&gt;A YubiKey is a small hardware device that offers two-factor authentication with a simple touch of a button. It appears like a USB human interface device (read: keyboard) and under normal conditions, when you press the button, it emits some random characters as if you typed them.&lt;/p&gt;
 
