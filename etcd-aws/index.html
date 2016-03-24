@@ -93,7 +93,7 @@
 <li>Use cloudformation to establish a three node autoscaling group of etcd instances.</li>
 <li>In case of the failure of a single node, we want the cluster to remain available and the replacement node to integrate into the cluster.</li>
 <li><strong>Cycling</strong>. If each node in the cluster is replaced by a new node, one at a time, the cluster should remain available.</li>
-<li>We want to configure cloudformation such that updates to the launch configuration effect the rolling update described in #3.</li>
+<li>We want to configure cloudformation such that updates to the launch configuration affect the rolling update described in #3.</li>
 <li>In the event of failure of all nodes simultaneously, the cluster recovers, albiet with interruption in service. The state is restored from a previous backup.</li>
 </ol>
 
@@ -114,7 +114,7 @@
 
 <h2 id="wrapping-etcd:e7a6f8a70e295412e40afbdbc7546fcb">Wrapping etcd</h2>
 
-<p>To implement the various features that we need on top of etcd we&rsquo;ll write a program that <code>etcd-aws</code> that discovers the correct configuration and invokes <code>etcd</code>. It will also handle the backups and cluster state monitoring that I&rsquo;ll describe later.</p>
+<p>To implement the various features that we need on top of etcd we&rsquo;ll write a program <code>etcd-aws</code> that discovers the correct configuration and invokes <code>etcd</code>. It will also handle the backups and cluster state monitoring that I&rsquo;ll describe later.</p>
 
 <p>Because we&rsquo;re using CoreOS we&rsquo;ll need to replace the systemd unit file that replaces <code>etcd</code> with a wrapper. <a href="https://www.digitalocean.com/community/tutorials/understanding-systemd-units-and-unit-files">Quoting</a>:</p>
 
@@ -158,7 +158,7 @@ WantedBy=multi-user.target
 
 <h3 id="bootstrapping-via-dns-srv:e7a6f8a70e295412e40afbdbc7546fcb">Bootstrapping via DNS SRV</h3>
 
-<p>I didn&rsquo;t look too hard at using DNS SRV records because would introduce complexity that I&rsquo;m not super keen on having to manage.</p>
+<p>We didn&rsquo;t look too hard at using DNS SRV records because it would introduce complexity that we&rsquo;re not super keen on having to manage.</p>
 
 <h3 id="bootstrapping-via-static:e7a6f8a70e295412e40afbdbc7546fcb">Bootstrapping via static</h3>
 
@@ -175,34 +175,34 @@ ETCD_INITIAL_CLUSTER_TOKEN=arn:aws:autoscaling:us-west-2:012345678901:autoScalin
 <ul>
 <li>The value in <code>ETCD_NAME</code> must be present in <code>ETCD_INITIAL_CLUSTER</code>.</li>
 <li>etcd derives the cluster ID from <code>ETCD_INITIAL_CLUSTER</code> when <code>ETCD_INITIAL_CLUSTER_STATE</code> is <code>new</code>, by hashing it or something. This means that <code>ETCD_INITIAL_CLUSTER</code> must be <strong>identical</strong> on all the nodes where <code>new</code> is specified. Same order. Same names. Identical.</li>
-<li>You might think that the cluster ID could be derived from <code>ETCD_INITIAL_CLUSTER_TOKEN</code>, but it isn&rsquo;t. <code>ETCD_INITIAL_CLUSTER_TOKEN</code> is a safety feature to keep clusters from getting mixed up, but it is not used to seed the cluster ID.</li>
+<li>You might think that the cluster ID would be derived from <code>ETCD_INITIAL_CLUSTER_TOKEN</code>, but it isn&rsquo;t. <code>ETCD_INITIAL_CLUSTER_TOKEN</code> is a safety feature to keep clusters from getting mixed up, but it is not used to seed the cluster ID.</li>
 <li>Nodes will not elect a leader until <em>n</em> / 2 + 1 of the nodes defined in <code>ETCD_INITIAL_CLUSTER</code> are present. It appears that you cannot join a cluster with <code>ETCD_INITIAL_CLUSTER_STATE=existing</code> until this has happend.</li>
 </ul>
 
-<h2 id="the-boostrap-solution:e7a6f8a70e295412e40afbdbc7546fcb">The Boostrap Solution</h2>
+<h2 id="the-bootstrap-solution:e7a6f8a70e295412e40afbdbc7546fcb">The Bootstrap Solution</h2>
 
-<p>To make this work we need to get at least two nodes to invoke <code>etcd</code> with the exact same <code>ETCD_INITIAL_CLUSTER</code> and <code>ETCD_INITIAL_CLUSTER_STATE=new</code>. After that we only need to get <code>ETCD_INITIAL_CLUSTER</code> mostly correct and can use <code>ETCD_INITIAL_CLUSTER_STATE=existing</code></p>
+<p>To make this work we need to get at least two nodes to invoke <code>etcd</code> with the exact same <code>ETCD_INITIAL_CLUSTER</code> and <code>ETCD_INITIAL_CLUSTER_STATE=new</code>. After that we only need to get <code>ETCD_INITIAL_CLUSTER</code> mostly correct and can use <code>ETCD_INITIAL_CLUSTER_STATE=existing</code>.</p>
 
-<p>When <code>etcd-aws</code> starts it determines the current members of the cluster using <a href="https://github.com/crewjam/etcd-aws/">ec2cluster</a> to guess based on introspecting the current instance&rsquo;s metadata and EC2 configuration. For our purposes, a cluster member is any instance in the same autoscaling group. Happily, <em>ec2cluster</em> sorts the cluster members by launch time, from oldest to youngest, so each node will see the same cluster order.</p>
+<p>When <code>etcd-aws</code> starts it determines the current members of the cluster using <a href="https://github.com/crewjam/etcd-aws/">ec2cluster</a> which introspects the current instance&rsquo;s metadata and EC2 for the configuration of other instances. For our purposes, a cluster member is any instance in the same autoscaling group.</p>
 
 <p>Next we attempt to contact each node in the cluster to determine if the cluster currently has a leader. If any node can be contacted and reports a leader then we assume the cluster is in the <code>existing</code> state, otherwise we assume the cluster is <code>new</code>. (Remember: we have to have at least two nodes that join as <code>new</code> in order to bootstrap the cluster and elect our first leader.)</p>
 
 <p>We construct the <code>ETCD_INITIAL_CLUSTER</code> value using the EC2 instance ID for the node name and the node&rsquo;s private IP address.</p>
 
-<p>We&rsquo;re almost there, but not quite. I&rsquo;ve observed cases where new nodes fail to join with a message like this:</p>
+<p>We&rsquo;re almost there, but not quite. I&rsquo;ve observed cases where new nodes fail to join existing clusters with a message like this:</p>
 
 <pre><code>etcdmain: error validating peerURLs {ClusterID:500f903265bef4ea Members:[&amp;{ID:7452025f0b7cee3e RaftAttributes:{PeerURLs:[http://10.0.133.146:2380]} Attributes:{Name:i-c8ccfa12 ClientURLs:[http://10.0.133.146:2379]}}] RemovedMemberIDs:[]}: member count is unequal
 </code></pre>
 
-<p>This can be resolved by telling an existing node of the cluster about the new node just before it joins. We can do this by manually joining the node to the cluster by making a <code>POST</code> request to the <code>/v2/members</code> endpoint on one of the existing nodes.</p>
+<p>This can be resolved by telling an existing node of the cluster about the new node just before starting the new etcd. We can do this by manually joining the node to the cluster by making a <code>POST</code> request to the <code>/v2/members</code> endpoint on one of the existing nodes.</p>
 
 <h2 id="the-cycling-problem:e7a6f8a70e295412e40afbdbc7546fcb">The Cycling Problem</h2>
 
 <p>So now we can launch a cluster from nothing &ndash; nifty. But because it&rsquo;s 2016 and all the cool kids are doing <a href="https://www.google.com/search?q=immutable%20infrastructure">immutable infrastructure</a> we have to as well. Here is where things get tricky.</p>
 
-<p>Etcd uses the <a href="https://speakerdeck.com/benbjohnson/raft-the-understandable-distributed-consensus-protocol">Raft consensus algorithm</a> to maintain consistency. These algorithms are designed such that a quorum of nodes is required to be in-sync to make a decision. If you have an <em>n</em>-node cluster, you&rsquo;ll need <em>n</em> / 2 + 1 nodes for a quorum.</p>
+<p>Etcd uses the <a href="https://speakerdeck.com/benbjohnson/raft-the-understandable-distributed-consensus-protocol">Raft consensus algorithm</a> to maintain consistency. The algorithm requires that a quorum of nodes be in-sync to make a decision. If you have an <em>n</em>-node cluster, you&rsquo;ll need <em>n</em> / 2 + 1 nodes for a quorum.</p>
 
-<p>So what happens when we cycle nodes?</p>
+<p>So what happens when we replace each node one at a time?</p>
 
 <table>
 <thead>
@@ -257,11 +257,11 @@ ETCD_INITIAL_CLUSTER_TOKEN=arn:aws:autoscaling:us-west-2:012345678901:autoScalin
 <li>We create a node and destroy a node. Now <em>n</em>=6, with three nodes unreachable and four required for quorum.<br /></li>
 </ol>
 
-<p><strong>Boom</strong> cluster broken. At this point it is impossible for the cluster to elect a leader. The missing nodes will never rejoin, but the cluster doesn&rsquo;t know that, so they still count against the count required for quorum.</p>
+<p><strong>Boom!</strong> Cluster broken. At this point it is impossible for the cluster to elect a leader. The missing nodes will never rejoin, but the cluster doesn&rsquo;t know that, so they still count against the count required for quorum.</p>
 
 <p>Crap.</p>
 
-<p>The documentation describes how a cluster node can be gracefully shut down, removing it from the cluster. For robustness, we don&rsquo;t want to rely on, or even expect that we&rsquo;ll be able to shut a node down cleanly &ndash; remember <a href="http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html">it&rsquo;s chaotic out there</a>.</p>
+<p>The documentation describes how a node can be gracefully shut down, removing it from the cluster. For robustness, we don&rsquo;t want to rely on, or even expect that we&rsquo;ll be able to shut a node down cleanly &ndash; remember <a href="http://techblog.netflix.com/2012/07/chaos-monkey-released-into-wild.html">it&rsquo;s chaotic out there</a>.</p>
 
 <h2 id="the-cycling-solution:e7a6f8a70e295412e40afbdbc7546fcb">The Cycling Solution</h2>
 
@@ -269,7 +269,7 @@ ETCD_INITIAL_CLUSTER_TOKEN=arn:aws:autoscaling:us-west-2:012345678901:autoScalin
 
 <p><a href="http://docs.aws.amazon.com/AutoScaling/latest/DeveloperGuide/lifecycle-hooks.html">Auto Scaling lifecycle hooks</a> are just the ticket.</p>
 
-<p>We create a lifecycle hook that notifies us whenever an instance is terminated. Experimentally, this works no matter if autoscaling kills your instance or if you kill an instance manually.</p>
+<p>We create a lifecycle hook that notifies us whenever an instance is terminated. Experimentally, this works no matter if autoscaling kills your instance or if you kill an instance by hand.</p>
 
 <pre><code class="language-go">t.AddResource(&quot;MasterAutoscaleLifecycleHookQueue&quot;, cfn.SQSQueue{})
 t.AddResource(&quot;MasterAutoscaleLifecycleHookTerminating&quot;, cfn.AutoScalingLifecycleHook{
@@ -320,15 +320,15 @@ func handleLifecycleEvent(m *ec2cluster.LifecycleMessage) (shouldContinue bool, 
 
 <h2 id="rolling-updates:e7a6f8a70e295412e40afbdbc7546fcb">Rolling Updates</h2>
 
-<p>In AWS AutoScaling, Launch Configurations define how your instances get created. Normally when we make changes to an AutoScaling launch configuration in CloudFormation, it does not affect already running instances.</p>
+<p>In AWS AutoScaling, launch configurations define how your instances get created. Normally when we make changes to a launch configuration in CloudFormation, it does not effect already running instances.</p>
 
-<p>To be buzzword compliant with &ldquo;immutable infrastructure&rdquo;, we have to tell CloudFormation to perform rolling updates across our cluster whenever we make a change to the launch configuration. To affect this, we add an <code>UpdatePolicy</code> and <code>CreationPolicy</code> to the template. We&rsquo;re telling CloudFormation to wait for a signal that each node is alive before proceeding to the next.</p>
+<p>To be buzzword compliant with &ldquo;immutable infrastructure&rdquo;, we have to tell CloudFormation to perform rolling updates across our cluster whenever we make a change to the launch configuration. To affect this, we add an <code>UpdatePolicy</code> and <code>CreationPolicy</code> to the template. We&rsquo;re telling CloudFormation to do rolling updates and to wait for a signal that each node is alive before proceeding to the next.</p>
 
 <pre><code class="language-go">t.Resources[&quot;MasterAutoscale&quot;] = &amp;cfn.Resource{
     UpdatePolicy: &amp;cfn.UpdatePolicy{
         AutoScalingRollingUpdate: &amp;cfn.UpdatePolicyAutoScalingRollingUpdate{
             MinInstancesInService: cfn.Integer(3),
-            PauseTime:             cfn.String(&quot;PT15M&quot;),
+            PauseTime:             cfn.String(&quot;PT5M&quot;),
             WaitOnResourceSignals: cfn.Bool(true),
         },
     },
@@ -347,7 +347,7 @@ func handleLifecycleEvent(m *ec2cluster.LifecycleMessage) (shouldContinue bool, 
 }
 </code></pre>
 
-<p>Now we need to send the signal that we are ready whenever systemd reports that etcd is running. For that we need another <code>oneshot</code> service:</p>
+<p>Now we need to send the signal that we are ready whenever systemd reports that etcd is running. For that we use a <code>oneshot</code> service:</p>
 
 <pre><code class="language-systemd">[Unit]
 Description=Cloudformation Signal Ready
@@ -370,9 +370,9 @@ docker run --rm crewjam/awscli cfn-signal \
 '
 </code></pre>
 
-<p>With this configured we get the kind of rolling updates that we want. Here is an excerpt of the CloudFormation events when performing a rolling upgrade</p>
+<p>With this configured we get the kind of rolling updates that we want. Here is an excerpt of the CloudFormation events that are emitted when performing a rolling upgrade.</p>
 
-<pre><code class="language-bash">Temporarily setting autoscaling group MinSize and DesiredCapacity to 4.
+<pre><code class="language-console">Temporarily setting autoscaling group MinSize and DesiredCapacity to 4.
 Rolling update initiated. Terminating 3 obsolete instance(s) in batches of 1, while keeping at least 3 instance(s) in service. Waiting on resource signals with a timeout of PT15M when new instances are added to the autoscaling group.
 New instance(s) added to autoscaling group - Waiting on 1 resource signal(s) with a timeout of PT15M.
 Received SUCCESS signal with UniqueId i-81c6a159
@@ -421,7 +421,7 @@ UPDATE_COMPLETE
 
 <p>To do this, I initially tried invoking <code>etcdctl backup</code> which creates a
 consistent copy of the state, tarring up the results and storing them in S3.
-This approach didn&rsquo;t work for me. Both the actual objects being stored <strong>and</strong> information about the cluster state are captured in the backup. When restoring to a new cluster after complete node failure, the <em>raft</em> state was broken and nothing worked. Ugh.</p>
+This approach didn&rsquo;t work for me. Both the actual objects being stored <strong>and</strong> information about the cluster state are captured in the backup. When restoring to a new cluster after complete node failure, the cluster state was broken and nothing worked. Ugh.</p>
 
 <p>Instead it turned out to be pretty simple to capture each value directly using the etcd client, write them to a big JSON document and store <em>that</em> in S3.</p>
 
@@ -553,9 +553,9 @@ t.AddResource(&quot;MasterBackupHealthAlarm&quot;, cfn.CloudWatchAlarm{
 })
 </code></pre>
 
-<h2 id="oh-em-gee:e7a6f8a70e295412e40afbdbc7546fcb">Oh em gee.</h2>
+<h2 id="oh-em-geez:e7a6f8a70e295412e40afbdbc7546fcb">Oh. em. geez.</h2>
 
-<p>We now have a cloudformation template where we can:</p>
+<p>That seems like it was harder than it needed to be, eh? But, we now have a cloudformation template where we can:</p>
 
 <ul>
 <li>Generate a working <em>etcd</em> cluster from scratch.</li>
